@@ -1,0 +1,1921 @@
+openapi: 3.0.3
+info:
+  title: Quant-UX Backend API
+  description: |
+    RESTful API for Quant-UX, a UX prototyping platform. 
+    This API provides endpoints for managing apps, users, comments, events, images, and more.
+  version: 4.5.6
+  contact:
+    name: Quant-UX API Support
+
+servers:
+  - url: http://localhost:8080
+    description: Local development server
+  - url: https://api.quant-ux.com
+    description: Production server
+
+tags:
+  - name: Status
+    description: Server status and health
+  - name: Authentication
+    description: User authentication and session management
+  - name: Users
+    description: User account management
+  - name: Apps
+    description: Application/prototype management
+  - name: Images
+    description: Image upload and management for apps
+  - name: Commands
+    description: Undo/redo command stack management
+  - name: Comments
+    description: Comments and annotations on apps
+  - name: Events
+    description: User interaction events and analytics
+  - name: Invitations
+    description: App sharing via invitation tokens
+  - name: Annotations
+    description: User annotations on app elements
+  - name: Test Settings
+    description: Test configuration for apps
+  - name: Libraries
+    description: Shared component library management
+
+security:
+  - bearerAuth: []
+
+paths:
+  /rest/status.json:
+    get:
+      tags:
+        - Status
+      summary: Get server status
+      description: Returns server status information including version and start time
+      security: []
+      responses:
+        '200':
+          description: Server status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  started:
+                    type: string
+                    description: Server start time
+                  version:
+                    type: string
+                    description: Server version
+                    example: "4.5.6"
+
+  /rest/login:
+    post:
+      tags:
+        - Authentication
+      summary: User login
+      description: Authenticate user and return JWT token
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - password
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    delete:
+      tags:
+        - Authentication
+      summary: User logout
+      description: Logout current user
+      responses:
+        '200':
+          description: Logout successful
+
+  /rest/user:
+    get:
+      tags:
+        - Users
+      summary: Get current user
+      description: Returns the currently authenticated user
+      responses:
+        '200':
+          description: Current user information
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+
+  /rest/user/{id}.json:
+    get:
+      tags:
+        - Users
+      summary: Get user by ID
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+      responses:
+        '200':
+          description: User information
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+    post:
+      tags:
+        - Users
+      summary: Update user
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                lastname:
+                  type: string
+                email:
+                  type: string
+                  format: email
+                about:
+                  type: string
+                homepage:
+                  type: string
+                facebook:
+                  type: string
+      responses:
+        '200':
+          description: User updated successfully
+
+  /rest/user/external:
+    post:
+      tags:
+        - Users
+      summary: Create external user
+      description: Create or get existing external user (for integration with external systems)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - id
+                - email
+                - name
+              properties:
+                id:
+                  type: string
+                  description: External user ID
+                email:
+                  type: string
+                  format: email
+                name:
+                  type: string
+                lastname:
+                  type: string
+      responses:
+        '200':
+          description: External user created or retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+
+  /rest/user/token-exchange:
+    post:
+      tags:
+        - Users
+      summary: Exchange external API token for Quant-UX JWT token
+      description: |
+        Exchanges an external API token for a Quant-UX JWT token. 
+        The endpoint validates the external token by calling the external API,
+        creates or retrieves the corresponding Quant-UX user, and returns a Quant-UX JWT token.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: false
+      responses:
+        '200':
+          description: Token exchange successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                  email:
+                    type: string
+                  name:
+                    type: string
+                  lastname:
+                    type: string
+                  role:
+                    type: string
+                  external:
+                    type: boolean
+                  token:
+                    type: string
+                    description: Quant-UX JWT token
+        '400':
+          description: Bad request - missing required user fields
+        '401':
+          description: Unauthorized - invalid external token
+        '500':
+          description: Internal server error or external API configuration missing
+        '502':
+          description: Bad gateway - failed to reach external API
+
+  /rest/user/{id}/images/:
+    post:
+      tags:
+        - Users
+      summary: Upload user image
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        '200':
+          description: Image uploaded successfully
+
+  /rest/user/{id}/images/{name}/{image}:
+    get:
+      tags:
+        - Users
+      summary: Get user image
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+        - name: name
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: image
+          in: path
+          required: true
+          schema:
+            type: string
+      security: []
+      responses:
+        '200':
+          description: Image file
+          content:
+            image/*:
+              schema:
+                type: string
+                format: binary
+
+  /rest/user/{id}/images/{image}:
+    delete:
+      tags:
+        - Users
+      summary: Delete user image
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+        - name: image
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Image deleted successfully
+
+  /rest/apps:
+    get:
+      tags:
+        - Apps
+      summary: Get user's apps
+      description: Returns all apps accessible to the current user
+      parameters:
+        - name: paging
+          in: query
+          schema:
+            type: string
+            enum: ["true", "false"]
+        - name: summary
+          in: query
+          schema:
+            type: string
+            enum: ["true", "false"]
+      responses:
+        '200':
+          description: List of apps
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/App'
+    post:
+      tags:
+        - Apps
+      summary: Create new app
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+              properties:
+                name:
+                  type: string
+                description:
+                  type: string
+                type:
+                  type: string
+                isPublic:
+                  type: boolean
+                clonable:
+                  type: boolean
+      responses:
+        '200':
+          description: App created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/App'
+
+  /rest/apps/public:
+    get:
+      tags:
+        - Apps
+      summary: Get public apps
+      description: Returns all publicly available apps
+      security: []
+      responses:
+        '200':
+          description: List of public apps
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/App'
+
+  /rest/apps/{appID}.json:
+    get:
+      tags:
+        - Apps
+      summary: Get app by ID
+      parameters:
+        - $ref: '#/components/parameters/AppId'
+      responses:
+        '200':
+          description: App information
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/App'
+    post:
+      tags:
+        - Apps
+      summary: Update app
+      parameters:
+        - $ref: '#/components/parameters/AppId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                description:
+                  type: string
+                isPublic:
+                  type: boolean
+      responses:
+        '200':
+          description: App updated successfully
+    delete:
+      tags:
+        - Apps
+      summary: Delete app
+      parameters:
+        - $ref: '#/components/parameters/AppId'
+      responses:
+        '200':
+          description: App deleted successfully
+
+  /rest/apps/embedded/{appID}.json:
+    get:
+      tags:
+        - Apps
+      summary: Get embedded app
+      description: Returns app summary for embedding
+      parameters:
+        - $ref: '#/components/parameters/AppId'
+      responses:
+        '200':
+          description: Embedded app information
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/App'
+
+  /rest/apps/props/{appID}.json:
+    post:
+      tags:
+        - Apps
+      summary: Update app properties
+      parameters:
+        - $ref: '#/components/parameters/AppId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                description:
+                  type: string
+      responses:
+        '200':
+          description: App properties updated
+
+  /rest/apps/copy/{appID}:
+    post:
+      tags:
+        - Apps
+      summary: Copy app
+      description: Creates a copy of an app
+      parameters:
+        - $ref: '#/components/parameters/AppId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+              properties:
+                name:
+                  type: string
+                  description: Name for the copied app
+      responses:
+        '200':
+          description: App copied successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+
+  /rest/apps/{appID}/update:
+    post:
+      tags:
+        - Apps
+      summary: Apply changes to app
+      description: Applies a delta update (array of changes) to the app
+      parameters:
+        - $ref: '#/components/parameters/AppId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              description: Array of change operations (delta format)
+              items:
+                type: object
+      responses:
+        '200':
+          description: Changes applied successfully
+
+  /rest/apps/invitation/{appID}:
+    delete:
+      tags:
+        - Apps
+      summary: Reset invitation tokens
+      description: Resets all invitation tokens for an app
+      parameters:
+        - $ref: '#/components/parameters/AppId'
+      responses:
+        '200':
+          description: Invitation tokens reset successfully
+
+  /rest/images/{appID}/{image}:
+    get:
+      tags:
+        - Images
+      summary: Get app image
+      parameters:
+        - $ref: '#/components/parameters/AppId'
+        - name: image
+          in: path
+          required: true
+          schema:
+            type: string
+      security: []
+      responses:
+        '200':
+          description: Image file
+          content:
+            image/*:
+              schema:
+                type: string
+                format: binary
+
+  /rest/images/{hash}/{appID}/{image}:
+    get:
+      tags:
+        - Images
+      summary: Get app image via invitation hash
+      parameters:
+        - name: hash
+          in: path
+          required: true
+          schema:
+            type: string
+        - $ref: '#/components/parameters/AppId'
+        - name: image
+          in: path
+          required: true
+          schema:
+            type: string
+      security: []
+      responses:
+        '200':
+          description: Image file
+          content:
+            image/*:
+              schema:
+                type: string
+                format: binary
+
+  /rest/images/{appID}:
+    post:
+      tags:
+        - Images
+      summary: Upload app image
+      parameters:
+        - $ref: '#/components/parameters/AppId'
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        '200':
+          description: Image uploaded successfully
+    get:
+      tags:
+        - Images
+      summary: Get app images
+      parameters:
+        - $ref: '#/components/parameters/AppId'
+      responses:
+        '200':
+          description: List of images
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Image'
+
+  /rest/images/{appID}/{imageID}/{ass}/{file}:
+    delete:
+      tags:
+        - Images
+      summary: Delete app image
+      parameters:
+        - $ref: '#/components/parameters/AppId'
+        - name: imageID
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: ass
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: file
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Image deleted successfully
+
+  /rest/commands/{appID}.json:
+    get:
+      tags:
+        - Commands
+      summary: Get or create command stack
+      parameters:
+        - $ref: '#/components/parameters/AppId'
+      responses:
+        '200':
+          description: Command stack
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommandStack'
+    post:
+      tags:
+        - Commands
+      summary: Update command stack
+      parameters:
+        - $ref: '#/components/parameters/AppId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CommandStack'
+      responses:
+        '200':
+          description: Command stack updated
+
+  /rest/commands/{appID}/add:
+    post:
+      tags:
+        - Commands
+      summary: Add command to stack
+      parameters:
+        - $ref: '#/components/parameters/AppId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Command'
+      responses:
+        '200':
+          description: Command added
+
+  /rest/commands/{appID}/undo:
+    post:
+      tags:
+        - Commands
+      summary: Undo last command
+      parameters:
+        - $ref: '#/components/parameters/AppId'
+      responses:
+        '200':
+          description: Command undone
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  pos:
+                    type: integer
+
+  /rest/commands/{appID}/redo:
+    post:
+      tags:
+        - Commands
+      summary: Redo last undone command
+      parameters:
+        - $ref: '#/components/parameters/AppId'
+      responses:
+        '200':
+          description: Command redone
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  pos:
+                    type: integer
+
+  /rest/commands/{appID}/pop/{count}:
+    delete:
+      tags:
+        - Commands
+      summary: Pop commands from stack
+      parameters:
+        - $ref: '#/components/parameters/AppId'
+        - name: count
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Commands popped
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  pos:
+                    type: integer
+
+  /rest/commands/{appID}/shift/{count}:
+    delete:
+      tags:
+        - Commands
+      summary: Shift commands from stack
+      parameters:
+        - $ref: '#/components/parameters/AppId'
+        - name: count
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Commands shifted
+
+  /rest/comments/apps/{appID}.json:
+    get:
+      tags:
+        - Comments
+      summary: Get app comments
+      parameters:
+        - $ref: '#/components/parameters/AppId'
+      responses:
+        '200':
+          description: List of comments
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Comment'
+    post:
+      tags:
+        - Comments
+      summary: Create comment
+      parameters:
+        - $ref: '#/components/parameters/AppId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Comment'
+      responses:
+        '200':
+          description: Comment created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Comment'
+
+  /rest/comments/apps/{appID}/{type}.json:
+    get:
+      tags:
+        - Comments
+      summary: Get comments by type
+      parameters:
+        - $ref: '#/components/parameters/AppId'
+        - name: type
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of comments
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Comment'
+
+  /rest/comments/apps/{appID}/{reference}/{type}.json:
+    get:
+      tags:
+        - Comments
+      summary: Get comments by reference and type
+      parameters:
+        - $ref: '#/components/parameters/AppId'
+        - name: reference
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: type
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of comments
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Comment'
+
+  /rest/comments/apps/{appID}/{commentID}.json:
+    post:
+      tags:
+        - Comments
+      summary: Update comment
+      parameters:
+        - $ref: '#/components/parameters/AppId'
+        - name: commentID
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Comment'
+      responses:
+        '200':
+          description: Comment updated
+    delete:
+      tags:
+        - Comments
+      summary: Delete comment
+      parameters:
+        - $ref: '#/components/parameters/AppId'
+        - name: commentID
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Comment deleted
+
+  /rest/comments/count/apps/{appID}/{type}.json:
+    get:
+      tags:
+        - Comments
+      summary: Get comment count by type
+      parameters:
+        - $ref: '#/components/parameters/AppId'
+        - name: type
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Comment count
+          content:
+            application/json:
+              schema:
+                type: integer
+
+  /rest/comments/count/apps/{appID}/{reference}/{type}.json:
+    get:
+      tags:
+        - Comments
+      summary: Get comment count by reference and type
+      parameters:
+        - $ref: '#/components/parameters/AppId'
+        - name: reference
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: type
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Comment count
+          content:
+            application/json:
+              schema:
+                type: integer
+
+  /rest/comments/hash/{hash}/{appID}.json:
+    get:
+      tags:
+        - Comments
+      summary: Get comments via invitation hash
+      parameters:
+        - name: hash
+          in: path
+          required: true
+          schema:
+            type: string
+        - $ref: '#/components/parameters/AppId'
+      security: []
+      responses:
+        '200':
+          description: List of comments
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Comment'
+    post:
+      tags:
+        - Comments
+      summary: Create comment via invitation hash
+      parameters:
+        - name: hash
+          in: path
+          required: true
+          schema:
+            type: string
+        - $ref: '#/components/parameters/AppId'
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Comment'
+      responses:
+        '200':
+          description: Comment created
+
+  /rest/comments/hash/{hash}/{appID}/{type}.json:
+    get:
+      tags:
+        - Comments
+      summary: Get comments by type via invitation hash
+      parameters:
+        - name: hash
+          in: path
+          required: true
+          schema:
+            type: string
+        - $ref: '#/components/parameters/AppId'
+        - name: type
+          in: path
+          required: true
+          schema:
+            type: string
+      security: []
+      responses:
+        '200':
+          description: List of comments
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Comment'
+
+  /rest/comments/hash/{hash}/{appID}/{reference}/{type}.json:
+    get:
+      tags:
+        - Comments
+      summary: Get comments by reference and type via invitation hash
+      parameters:
+        - name: hash
+          in: path
+          required: true
+          schema:
+            type: string
+        - $ref: '#/components/parameters/AppId'
+        - name: reference
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: type
+          in: path
+          required: true
+          schema:
+            type: string
+      security: []
+      responses:
+        '200':
+          description: List of comments
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Comment'
+
+  /rest/comments/hash/{hash}/{appID}/{commentID}.json:
+    post:
+      tags:
+        - Comments
+      summary: Update comment via invitation hash
+      parameters:
+        - name: hash
+          in: path
+          required: true
+          schema:
+            type: string
+        - $ref: '#/components/parameters/AppId'
+        - name: commentID
+          in: path
+          required: true
+          schema:
+            type: string
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Comment'
+      responses:
+        '200':
+          description: Comment updated
+    delete:
+      tags:
+        - Comments
+      summary: Delete comment via invitation hash
+      parameters:
+        - name: hash
+          in: path
+          required: true
+          schema:
+            type: string
+        - $ref: '#/components/parameters/AppId'
+        - name: commentID
+          in: path
+          required: true
+          schema:
+            type: string
+      security: []
+      responses:
+        '200':
+          description: Comment deleted
+
+  /rest/comments/count/hash/{hash}/{appID}/{type}.json:
+    get:
+      tags:
+        - Comments
+      summary: Get comment count via invitation hash
+      parameters:
+        - name: hash
+          in: path
+          required: true
+          schema:
+            type: string
+        - $ref: '#/components/parameters/AppId'
+        - name: type
+          in: path
+          required: true
+          schema:
+            type: string
+      security: []
+      responses:
+        '200':
+          description: Comment count
+          content:
+            application/json:
+              schema:
+                type: integer
+
+  /rest/comments/count/hash/{hash}/{appID}/{reference}/{type}.json:
+    get:
+      tags:
+        - Comments
+      summary: Get comment count by reference via invitation hash
+      parameters:
+        - name: hash
+          in: path
+          required: true
+          schema:
+            type: string
+        - $ref: '#/components/parameters/AppId'
+        - name: reference
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: type
+          in: path
+          required: true
+          schema:
+            type: string
+      security: []
+      responses:
+        '200':
+          description: Comment count
+          content:
+            application/json:
+              schema:
+                type: integer
+
+  /rest/events/{appID}.json:
+    get:
+      tags:
+        - Events
+      summary: Get app events
+      parameters:
+        - $ref: '#/components/parameters/AppId'
+      responses:
+        '200':
+          description: List of events
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Event'
+    post:
+      tags:
+        - Events
+      summary: Create event(s)
+      description: Creates one or more events (supports batch creation)
+      parameters:
+        - $ref: '#/components/parameters/AppId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - $ref: '#/components/schemas/Event'
+                - type: array
+                  items:
+                    $ref: '#/components/schemas/Event'
+      responses:
+        '200':
+          description: Event(s) created
+
+  /rest/events/{appID}/{session}.json:
+    get:
+      tags:
+        - Events
+      summary: Get events by session
+      parameters:
+        - $ref: '#/components/parameters/AppId'
+        - name: session
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of events
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Event'
+    delete:
+      tags:
+        - Events
+      summary: Delete events by session
+      parameters:
+        - $ref: '#/components/parameters/AppId'
+        - name: session
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Events deleted
+
+  /rest/events/{appID}/{id}.json:
+    post:
+      tags:
+        - Events
+      summary: Update event
+      parameters:
+        - $ref: '#/components/parameters/AppId'
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Event'
+      responses:
+        '200':
+          description: Event updated
+
+  /rest/events/{appID}/all/count.json:
+    get:
+      tags:
+        - Events
+      summary: Get total event count
+      parameters:
+        - $ref: '#/components/parameters/AppId'
+      responses:
+        '200':
+          description: Total event count
+          content:
+            application/json:
+              schema:
+                type: integer
+
+  /rest/invitation/{appID}.json:
+    get:
+      tags:
+        - Invitations
+      summary: Get app invitations
+      parameters:
+        - $ref: '#/components/parameters/AppId'
+      responses:
+        '200':
+          description: Invitation tokens
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties:
+                  type: integer
+                  description: Permission level (1=TEST, 2=READ, 3=WRITE)
+
+  /rest/invitation/{hash}/app.json:
+    get:
+      tags:
+        - Invitations
+      summary: Get app by invitation hash
+      parameters:
+        - name: hash
+          in: path
+          required: true
+          schema:
+            type: string
+      security: []
+      responses:
+        '200':
+          description: App information
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/App'
+
+  /rest/invitation/{hash}/update.json:
+    get:
+      tags:
+        - Invitations
+      summary: Get last update timestamp via invitation hash
+      parameters:
+        - name: hash
+          in: path
+          required: true
+          schema:
+            type: string
+      security: []
+      responses:
+        '200':
+          description: Last update timestamp
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  lastUpdate:
+                    type: integer
+                    format: int64
+
+  /rest/invitation/{appID}/{hash}/test.json:
+    get:
+      tags:
+        - Invitations
+      summary: Get test invitation details
+      parameters:
+        - $ref: '#/components/parameters/AppId'
+        - name: hash
+          in: path
+          required: true
+          schema:
+            type: string
+      security: []
+      responses:
+        '200':
+          description: Test invitation information
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /rest/invitation/{appID}/{hash}/events.json:
+    post:
+      tags:
+        - Invitations
+      summary: Add events via invitation hash
+      parameters:
+        - $ref: '#/components/parameters/AppId'
+        - name: hash
+          in: path
+          required: true
+          schema:
+            type: string
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: '#/components/schemas/Event'
+      responses:
+        '200':
+          description: Events added
+
+  /rest/annotations/apps/{appID}/all.json:
+    get:
+      tags:
+        - Annotations
+      summary: Get all annotations for app
+      parameters:
+        - $ref: '#/components/parameters/AppId'
+      responses:
+        '200':
+          description: List of annotations
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Annotation'
+
+  /rest/annotations/apps/{appID}/{type}.json:
+    get:
+      tags:
+        - Annotations
+      summary: Get annotations by type
+      parameters:
+        - $ref: '#/components/parameters/AppId'
+        - name: type
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of annotations
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Annotation'
+
+  /rest/annotations/apps/{appID}/{reference}/{type}.json:
+    get:
+      tags:
+        - Annotations
+      summary: Get annotations by reference and type
+      parameters:
+        - $ref: '#/components/parameters/AppId'
+        - name: reference
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: type
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of annotations
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Annotation'
+
+  /rest/annotations/apps/{appID}:
+    post:
+      tags:
+        - Annotations
+      summary: Create annotation
+      parameters:
+        - $ref: '#/components/parameters/AppId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Annotation'
+      responses:
+        '200':
+          description: Annotation created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Annotation'
+
+  /rest/annotations/apps/{appID}/{annotationID}.json:
+    post:
+      tags:
+        - Annotations
+      summary: Update annotation
+      parameters:
+        - $ref: '#/components/parameters/AppId'
+        - name: annotationID
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Annotation'
+      responses:
+        '200':
+          description: Annotation updated
+    delete:
+      tags:
+        - Annotations
+      summary: Delete annotation
+      parameters:
+        - $ref: '#/components/parameters/AppId'
+        - name: annotationID
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Annotation deleted
+
+  /rest/test/{appID}.json:
+    get:
+      tags:
+        - Test Settings
+      summary: Get or create test settings
+      parameters:
+        - $ref: '#/components/parameters/AppId'
+      responses:
+        '200':
+          description: Test settings
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TestSetting'
+    post:
+      tags:
+        - Test Settings
+      summary: Update test settings
+      parameters:
+        - $ref: '#/components/parameters/AppId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TestSetting'
+      responses:
+        '200':
+          description: Test settings updated
+
+  /rest/libs:
+    get:
+      tags:
+        - Libraries
+      summary: Get user's libraries
+      description: Returns all libraries accessible to the current user
+      responses:
+        '200':
+          description: List of libraries
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Library'
+    post:
+      tags:
+        - Libraries
+      summary: Create new library
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                description:
+                  type: string
+                isPublic:
+                  type: boolean
+      responses:
+        '200':
+          description: Library created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Library'
+
+  /rest/libs/{libID}.json:
+    get:
+      tags:
+        - Libraries
+      summary: Get library by ID
+      parameters:
+        - name: libID
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Library information
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Library'
+    post:
+      tags:
+        - Libraries
+      summary: Update library
+      parameters:
+        - name: libID
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                description:
+                  type: string
+                isPublic:
+                  type: boolean
+      responses:
+        '200':
+          description: Library updated successfully
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT token obtained from login endpoint
+
+  parameters:
+    AppId:
+      name: appID
+      in: path
+      required: true
+      description: Application ID
+      schema:
+        type: string
+    UserId:
+      name: id
+      in: path
+      required: true
+      description: User ID
+      schema:
+        type: string
+
+  schemas:
+    User:
+      type: object
+      properties:
+        _id:
+          type: string
+        email:
+          type: string
+          format: email
+        name:
+          type: string
+        lastname:
+          type: string
+        role:
+          type: string
+          enum: ["user", "guest"]
+        image:
+          type: string
+        about:
+          type: string
+        homepage:
+          type: string
+        status:
+          type: string
+        lastlogin:
+          type: integer
+          format: int64
+        domain:
+          type: string
+        created:
+          type: integer
+          format: int64
+        lastUpdate:
+          type: integer
+          format: int64
+        token:
+          type: string
+          description: JWT token (only returned on login)
+
+    App:
+      type: object
+      properties:
+        _id:
+          type: string
+        id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        type:
+          type: string
+        isPublic:
+          type: boolean
+        clonable:
+          type: boolean
+        rating:
+          type: number
+          format: float
+        test:
+          type: integer
+        comments:
+          type: integer
+        screenSize:
+          type: object
+          properties:
+            w:
+              type: integer
+            h:
+              type: integer
+        users:
+          type: object
+          description: Map of userID to permission level
+          additionalProperties:
+            type: integer
+            description: Permission level (higher number = higher permission)
+        created:
+          type: integer
+          format: int64
+        lastUpdate:
+          type: integer
+          format: int64
+        isDeleted:
+          type: boolean
+        widgets:
+          type: object
+          description: App widgets structure
+        screens:
+          type: object
+          description: App screens structure
+        groups:
+          type: object
+          description: App groups structure
+        templates:
+          type: object
+          description: App templates structure
+
+    Library:
+      type: object
+      properties:
+        _id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        isPublic:
+          type: boolean
+        users:
+          type: object
+          description: Map of userID to permission level
+          additionalProperties:
+            type: integer
+        created:
+          type: integer
+          format: int64
+        lastUpdate:
+          type: integer
+          format: int64
+
+    Comment:
+      type: object
+      properties:
+        _id:
+          type: string
+        appID:
+          type: string
+        userID:
+          type: string
+        type:
+          type: string
+          example: "ScreenComment"
+        reference:
+          type: string
+        parent:
+          type: string
+          description: Parent comment ID for threaded comments
+        message:
+          type: string
+        annotation:
+          type: string
+        x:
+          type: integer
+        y:
+          type: integer
+        w:
+          type: integer
+        h:
+          type: integer
+        created:
+          type: integer
+          format: int64
+        lastUpdate:
+          type: integer
+          format: int64
+
+    Event:
+      type: object
+      properties:
+        _id:
+          type: string
+        appID:
+          type: string
+        userID:
+          type: string
+        type:
+          type: string
+          example: "SessionStart"
+        session:
+          type: string
+        created:
+          type: integer
+          format: int64
+        lastUpdate:
+          type: integer
+          format: int64
+
+    Image:
+      type: object
+      properties:
+        _id:
+          type: string
+        appID:
+          type: string
+        userID:
+          type: string
+        name:
+          type: string
+        url:
+          type: string
+        width:
+          type: integer
+        height:
+          type: integer
+        created:
+          type: integer
+          format: int64
+        lastUpdate:
+          type: integer
+          format: int64
+
+    Annotation:
+      type: object
+      properties:
+        _id:
+          type: string
+        appID:
+          type: string
+        userID:
+          type: string
+        type:
+          type: string
+        reference:
+          type: string
+        value:
+          type: string
+        created:
+          type: integer
+          format: int64
+        lastUpdate:
+          type: integer
+          format: int64
+
+    CommandStack:
+      type: object
+      properties:
+        _id:
+          type: string
+        appID:
+          type: string
+        stack:
+          type: array
+          items:
+            $ref: '#/components/schemas/Command'
+        pos:
+          type: integer
+          description: Current position in command stack
+        lastUUID:
+          type: integer
+
+    Command:
+      type: object
+      description: Individual command in the undo/redo stack
+      properties:
+        userID:
+          type: string
+        type:
+          type: string
+        data:
+          type: object
+
+    TestSetting:
+      type: object
+      properties:
+        _id:
+          type: string
+        appID:
+          type: string
+        userID:
+          type: string
+        tasks:
+          type: array
+          items:
+            type: object
+        created:
+          type: integer
+          format: int64
+        lastUpdate:
+          type: integer
+          format: int64
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+        message:
+          type: string
+
+  responses:
+    Unauthorized:
+      description: Authentication required or invalid credentials
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    BadRequest:
+      description: Invalid request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+

@@ -7,20 +7,21 @@ import com.qux.auth.ITokenService;
 import com.qux.blob.IBlobService;
 import com.qux.model.AppEvent;
 import com.qux.model.User;
-import com.qux.util.Config;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.qux.util.DB;
 import com.qux.util.rest.MongoREST;
 import com.qux.util.Util;
+import com.qux.util.Config;
 import com.qux.validation.UserValidator;
 import io.vertx.core.Handler;
+import io.vertx.core.Vertx;
 import io.vertx.core.file.FileSystem;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.mongo.MongoClient;
 import io.vertx.ext.web.FileUpload;
 import io.vertx.ext.web.RoutingContext;
+import io.vertx.ext.web.client.WebClient;
 
 public class UserREST extends MongoREST {
 
@@ -32,34 +33,18 @@ public class UserREST extends MongoREST {
 
   private final IBlobService blobService;
 
-  private boolean allowSignUp = true;
+  private WebClient webClient;
+  private String externalApiUrl;
 
-  private boolean hasCustomDomains = false;
-
-  private String[] allowedDomains = new String[0];
-
-  public UserREST(ITokenService tokenService, IBlobService blobService, MongoClient db, JsonObject conf) {
+  public UserREST(ITokenService tokenService, IBlobService blobService, MongoClient db, JsonObject conf, Vertx vertx) {
     super(tokenService, db, User.class);
     this.blobService = blobService;
     this.imageSize = conf.getLong("image.size");
-    this.initConfig(conf);
+    this.webClient = WebClient.create(vertx);
+    this.externalApiUrl = conf.getString(Config.EXTERNAL_API_URL);
     setACL(new UserAcl(db));
     setValidator(new UserValidator(db));
     setPartialUpdate(true);
-  }
-
-  private void initConfig(JsonObject conf) {
-    this.allowSignUp = Config.getUserSignUpAllowed(conf);
-    if (!this.allowSignUp) {
-      logger.error("initConfig() > No signups allowed");
-    }
-
-    String domains = Config.getUserAllowedDomains(conf);
-    if (!"*".equals(domains)) {
-      this.hasCustomDomains = true;
-      this.allowedDomains = domains.split(",");
-      logger.error("initConfig() > Limit domains to: " + domains);
-    }
   }
 
   public Handler<RoutingContext> current() {
@@ -95,12 +80,7 @@ public class UserREST extends MongoREST {
         if (res.succeeded()) {
           JsonObject user = res.result();
           if (user != null) {
-            if (User.STATUS_RETIRED.equals(user.getString("status"))) {
-              error("login", "Retired user tried login");
-              returnError(event, "user.login.fail");
-            } else {
-              checkPassword(event, login, user);
-            }
+            checkPassword(event, login, user);
           } else {
             error("login", "No user with mail :" + login.getString("email"));
             returnError(event, "user.login.fail");
@@ -227,12 +207,7 @@ public class UserREST extends MongoREST {
     json.put("email", json.getString("email").toLowerCase());
     json.put("external", true);
     json.put("role", User.USER);
-    json.put("plan", "Free");
-    json.put("newsletter", false);
-    json.put("lastNotification", 0);
     json.put("password", Util.getRandomString());
-    json.put("acceptedTOS", System.currentTimeMillis());
-    json.put("acceptedPrivacy", System.currentTimeMillis());
     json.put("acceptedGDPR", true);
 
     this.mongo.insert(this.table, json, res -> {
@@ -251,63 +226,131 @@ public class UserREST extends MongoREST {
     });
   }
 
-  protected void create(RoutingContext event, JsonObject json) {
+  public void exchangeToken(RoutingContext event) {
+    logger.info("exchangeToken() > enter");
 
-    if (!this.allowSignUp) {
-      logger.error("create() > User tried to signup although not allowed");
-      returnError(event, "user.create.nosignup");
+    // Check if external API is configured
+    if (externalApiUrl == null || externalApiUrl.isEmpty()) {
+      logger.error("exchangeToken() > External API URL not configured");
+      returnError(event, 500);
       return;
     }
 
-    if (this.hasCustomDomains && this.allowedDomains.length > 0) {
-      String email = json.getString("email").toLowerCase();
-      if (!checkAllowedDomains(email)) {
-        logger.error("create() > Wrong domain", email);
-        returnError(event, "user.create.domain");
-        return;
-      }
+    // Get the external token from Authorization header
+    String authHeader = event.request().getHeader("Authorization");
+    if (authHeader == null || authHeader.isEmpty()) {
+      logger.error("exchangeToken() > No Authorization header");
+      returnError(event, 401);
+      return;
     }
 
+    // Extract token (could be Bearer token or just the token)
+    String externalToken = authHeader;
+    if (authHeader.startsWith("Bearer ")) {
+      externalToken = authHeader.substring(7);
+    }
+
+    // Call external API to get user info
+    webClient.getAbs(externalApiUrl + "/v3/user/me")
+        .putHeader("Authorization", externalToken)
+        .send(apiRes -> {
+          if (apiRes.failed()) {
+            logger.error("exchangeToken() > Failed to call external API", apiRes.cause());
+            returnError(event, 502);
+            return;
+          }
+
+          if (apiRes.result().statusCode() != 200) {
+            logger.error("exchangeToken() > External API returned status: " + apiRes.result().statusCode());
+            returnError(event, 401);
+            return;
+          }
+
+          try {
+            JsonObject externalUser = apiRes.result().bodyAsJsonObject();
+
+            // Validate required fields
+            if (!externalUser.containsKey("id")) {
+              logger.error("exchangeToken() > External user missing id");
+              returnError(event, 400);
+              return;
+            }
+            if (!externalUser.containsKey("username")) {
+              logger.error("exchangeToken() > External user missing username");
+              returnError(event, 400);
+              return;
+            }
+
+            // Map external user to Quant-UX user format
+            String externalUserId = externalUser.getString("id");
+            String email = externalUser.getString("username");
+            String firstName = externalUser.getString("firstName", "");
+            String lastName = externalUser.getString("lastName", "");
+
+            // Ensure user exists in Quant-UX (idempotent)
+            JsonObject quantUXUserJson = new JsonObject()
+                .put("id", externalUserId)
+                .put("email", email)
+                .put("name", firstName)
+                .put("lastname", lastName);
+
+            // Check if user already exists
+            this.mongo.findOne(this.table, User.findById(externalUserId), null, findRes -> {
+              if (findRes.failed()) {
+                logger.error("exchangeToken() > Failed to query user", findRes.cause());
+                returnError(event, 500);
+                return;
+              }
+
+              JsonObject existingUser = findRes.result();
+              if (existingUser != null) {
+                // User exists, generate token
+                logger.info("exchangeToken() > User exists, generating token");
+                existingUser.put("id", externalUserId);
+                existingUser.remove("_id");
+                String token = this.getTokenService().getToken(existingUser);
+                JsonObject response = cleanJson(existingUser.copy());
+                response.put("token", token);
+                returnJson(event, response);
+              } else {
+                // User doesn't exist, create it
+                logger.info("exchangeToken() > Creating new user");
+                insertExternalForTokenExchange(event, quantUXUserJson, externalUserId);
+              }
+            });
+          } catch (Exception e) {
+            logger.error("exchangeToken() > Error processing external user", e);
+            returnError(event, 500);
+          }
+        });
+  }
+
+  private void insertExternalForTokenExchange(RoutingContext event, JsonObject json, String id) {
+    json.remove("id");
+    json.put("_id", id);
+
+    json.put("external", true);
     json.put("created", System.currentTimeMillis());
     json.put("lastUpdate", System.currentTimeMillis());
     json.put("email", json.getString("email").toLowerCase());
-    json.put("password", Util.hashPassword(json.getString("password")));
     json.put("role", User.USER);
-    json.put("plan", "free");
-    json.put("newsletter", false);
-    json.put("lastNotification", 0);
-    json.put("acceptedTOS", System.currentTimeMillis());
-    json.put("acceptedPrivacy", System.currentTimeMillis());
+    json.put("password", Util.getRandomString());
     json.put("acceptedGDPR", true);
 
-    mongo.insert(this.table, json, res -> {
+    this.mongo.insert(this.table, json, res -> {
       if (res.succeeded()) {
+        logger.info("insertExternalForTokenExchange() > Created user: " + id);
 
-        json.put("_id", res.result());
-        logger.info("create() > User " + json.encode());
-        cleanJson(json);
-        event.response().end(json.encode());
-
-        AppEvent.send(event, json.getString("email"), AppEvent.TYPE_USER_SIGNUP);
-
+        json.put("id", id);
+        String token = this.getTokenService().getToken(json);
+        JsonObject response = cleanJson(json.copy());
+        response.put("token", token);
+        returnJson(event, response);
       } else {
-        returnError(event, table + ".create.error");
+        logger.error("insertExternalForTokenExchange() > Could not save user", res.cause());
+        returnError(event, 500);
       }
     });
-  }
-
-  private boolean checkAllowedDomains(String email) {
-    logger.info("checkAllowedDomains() > check ", email);
-    String[] parts = email.split("@");
-    if (parts.length == 2) {
-      String customDomain = parts[1];
-      for (String domain : this.allowedDomains) {
-        if (customDomain.endsWith(domain)) {
-          return true;
-        }
-      }
-    }
-    return false;
   }
 
   public void update(RoutingContext event, String id, JsonObject json) {
@@ -335,11 +378,6 @@ public class UserREST extends MongoREST {
     if (json.containsKey("status")) {
       logger.error("update() > User " + getUser(event) + " tried to set status!");
       json.remove("status");
-    }
-
-    if (json.containsKey("plan")) {
-      logger.error("update() > User " + getUser(event) + " tried to set plan!");
-      json.remove("plan");
     }
 
     if (json.containsKey("has")) {
@@ -533,56 +571,6 @@ public class UserREST extends MongoREST {
 
   public void getImage(RoutingContext event, String userID, String image) {
     this.blobService.getBlob(event, userID, image);
-  }
-
-  public Handler<RoutingContext> retire() {
-    return new Handler<RoutingContext>() {
-      @Override
-      public void handle(RoutingContext event) {
-        retireUser(event);
-      }
-    };
-  }
-
-  public void retireUser(RoutingContext event) {
-    logger.info("retireUser() > enter ");
-
-    User user = getUser(event);
-    if (!user.isGuest()) {
-
-      JsonObject request = new JsonObject()
-          .put("status", User.STATUS_RETIRED);
-
-      JsonObject update = new JsonObject()
-          .put("$set", request);
-
-      mongo.updateCollection(table, User.findById(user.getId()), update, res -> {
-        if (res.succeeded()) {
-          AppEvent.send(event, user.getEmail(), AppEvent.TYPE_USER_RETIRED);
-        } else {
-          logger.error("retireUser() > could not save mongo", res.cause());
-        }
-      });
-
-      this.logout(event);
-    } else {
-      error("retireUser", "The user " + getUser(event) + " tried to retire");
-      returnError(event, 405);
-    }
-
-  }
-
-  public void updatePrivacy(RoutingContext event) {
-    User user = this.getUser(event);
-    logger.debug("updatePrivacy() > enter > " + user);
-    if (!user.isGuest()) {
-      JsonObject update = new JsonObject().put("acceptedGDPR", true);
-      particalUpdate(event, getUser(event).getId(), update);
-      AppEvent.send(event, user.getEmail(), AppEvent.TYPE_USER_UPDATE_PRIVACY);
-    } else {
-      logger.debug("updatePrivacy() > Called for guest...");
-      returnOk(event, "user.privacy.update");
-    }
   }
 
   protected JsonObject cleanJson(JsonObject user) {

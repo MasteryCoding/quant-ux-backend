@@ -26,7 +26,8 @@ the passwords the same. If you keep the password blank, a random password is gen
   "mongo.connection_string": "mongodb://localhost:27017", // connection string, might include password and username
   "auth.service": "", // 'keycloak' or ''
   "user.allowSignUp": true,
-  "user.allowedDomains": "*"
+  "user.allowedDomains": "*",
+  "external.api.url": "https://your-external-api.com" // URL for external API token exchange
 }
 ```
 
@@ -53,36 +54,41 @@ to the JSON definitions.
 
     QUX_AUTH_SERVICE
 
-    QUX_KEYCLOAK_REALM
-
-    QUX_KEYCLOAK_SERVER
-
-    QUX_KEY_CLOAK_CLAIM_ROLE
-
-    QUX_KEY_CLOAK_ISSUER
-
-    QUX_KEY_CLOAK_CLAIM_ID
-
-    QUX_KEY_CLOAK_CLAIM_EMAIL
-
-    QUX_KEY_CLOAK_CLAIM_NAME
-
-    QUX_KEY_CLOAK_CLAIM_LASTNAME
-
     QUX_USER_ALLOW_SIGNUP
 
     QUX_USER_ALLOWED_DOMAINS
+
+    QUX_EXTERNAL_API_URL
 
 ```
 
 Please note that we have replaced the old config of nested objects with a straight dot notation.
 
-### Private deployments
+### External API Token Exchange
 
-You can limit the domains from which user can sign up by setting the 'user.allowedDomains'
-parameter in the config file, or by setting the ENV variable 'QUX_USER_ALLOWED_DOMAINS'. The value
-must be a comma separated list of domains, e.g. 'my-server.com,your-host.com'. Please be aware of <SPACES>. Sub-domains
-will be allowed.
+The server supports token exchange with external APIs. When configured, users from external systems can exchange their external API tokens for Quant-UX JWT tokens.
+
+**Configuration:**
+
+- `external.api.url`: The base URL of your external API (required)
+
+**Usage:**
+
+1. Configure the external API URL in your config file
+2. Users can call `POST /rest/user/token-exchange` with their external API token in the `Authorization` header
+3. The server will:
+   - Validate the token by calling `GET {external.api.url}/v3/user/me` with the token in the `Authorization` header
+   - Create or retrieve the corresponding Quant-UX user (idempotent)
+   - Return a Quant-UX JWT token
+
+**Example:**
+
+```bash
+curl -X POST https://your-quantux-backend.com/rest/user/token-exchange \
+  -H "Authorization: Bearer your-external-api-token"
+```
+
+The external API must implement `GET /v3/user/me` that returns a user object with at least `id` and `username` fields.
 
 ## Mongo optimization
 
@@ -135,13 +141,3 @@ In InteliJ create a new runner with the following parameters:
 - _Main Class_: io.vertx.core.Starter
 
 - _Program Arguments_: run com.qux.MATC -conf matc.conf
-
-## Connection with KeyCloak
-
-```
-docker run -p 8081:8080 -e KEYCLOAK_USER=admin -e KEYCLOAK_PASSWORD=admin -v $(pwd)/test/keycloak:/tmp --name qux-keycloak jboss/keycloak
-```
-
-```
-docker run -p 8081:8080 -e KEYCLOAK_USER=admin -e KEYCLOAK_PASSWORD=admin -e KEYCLOAK_IMPORT=/tmp/example-realm.json -v  $(pwd)/test/keycloak/example-realm.json:/tmp/example-realm.json --name qux-keycloak  jboss/keycloak
-```

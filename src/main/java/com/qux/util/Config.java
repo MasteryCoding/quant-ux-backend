@@ -34,6 +34,8 @@ public class Config {
 
   public static final String ENV_USER_ALLOWED_DOMAINS = "QUX_USER_ALLOWED_DOMAINS";
 
+  public static final String ENV_EXTERNAL_API_URL = "QUX_EXTERNAL_API_URL";
+
   public static final String DEBUG = "debug";
 
   public static final String HTTP_HOST = "http.host";
@@ -57,6 +59,8 @@ public class Config {
   public static final String USER_ALLOW_SIGNUP = "user.allowSignUp";
 
   public static final String USER_ALLOWED_DOMAINS = "user.allowedDomains";
+
+  public static final String EXTERNAL_API_URL = "external.api.url";
 
   public static boolean isFileSystem(JsonObject config) {
     return true;
@@ -130,6 +134,10 @@ public class Config {
     if (env.containsKey(ENV_USER_ALLOW_SIGNUP)) {
       logger.error("mergeUser() > " + ENV_USER_ALLOW_SIGNUP + " > " + env.get(ENV_USER_ALLOW_SIGNUP));
       result.put(USER_ALLOW_SIGNUP, !"false".equals(env.get(ENV_USER_ALLOW_SIGNUP)));
+    }
+    if (env.containsKey(ENV_EXTERNAL_API_URL)) {
+      logger.warn("mergeUser() > " + ENV_EXTERNAL_API_URL);
+      result.put(EXTERNAL_API_URL, env.get(ENV_EXTERNAL_API_URL));
     }
   }
 

@@ -281,9 +281,8 @@ public class MATC extends AbstractVerticle {
   private void initUserRest(JsonObject config, Router router) {
 
     IBlobService blob = getBlockService(config.getString("image.folder.user"), config);
-    UserREST user = new UserREST(this.tokenService, blob, client, config);
+    UserREST user = new UserREST(this.tokenService, blob, client, config, vertx);
 
-    router.route(HttpMethod.POST, "/rest/user").handler(user.create());
     router.route(HttpMethod.POST, "/rest/user/:id/images/").handler(user.setImage());
     router.route(HttpMethod.GET, "/rest/user/:id/images/:name/:image").handler(user.getImage());
     router.route(HttpMethod.DELETE, "/rest/user/:id/images/:image").handler(user.deleteImage());
@@ -292,10 +291,9 @@ public class MATC extends AbstractVerticle {
     router.route(HttpMethod.GET, "/rest/user").handler(user.current());
     router.route(HttpMethod.POST, "/rest/login").handler(user.login());
     router.route(HttpMethod.DELETE, "/rest/login").handler(user.logout());
-    router.route(HttpMethod.GET, "/rest/retire").handler(user.retire());
-    router.route(HttpMethod.POST, "/rest/user/privacy/update.json").handler(user::updatePrivacy);
 
     router.route(HttpMethod.POST, "/rest/user/external").handler(user::createExternalIfNotExists);
+    router.route(HttpMethod.POST, "/rest/user/token-exchange").handler(user::exchangeToken);
   }
 
   @Override
