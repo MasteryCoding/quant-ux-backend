@@ -1,4 +1,4 @@
-FROM maven:3-openjdk-18 as builder
+FROM maven:3-openjdk-18 AS builder
 
 WORKDIR /app
 
@@ -8,11 +8,10 @@ RUN mvn -B package --file pom.xml
 
 
 
-FROM openjdk:19-jdk-alpine as runner
+FROM eclipse-temurin:18-jdk-alpine AS runner
 
 WORKDIR /app
 
-COPY ["emails/", "./emails"]
 COPY ["matc.conf", "./"]
 COPY --from=builder ["/app/release/qux-server.jar", "./"]
 
