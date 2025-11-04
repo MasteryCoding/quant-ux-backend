@@ -11,221 +11,190 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 import com.qux.util.DB;
 
-
 @JsonIgnoreProperties(ignoreUnknown = true)
-public class App extends Model{
-	
-	public static final String FIELD_IS_DELETED = "isDeleted";
-	
-	public static final String BUS_APP_UPDATE = "matc.app.update";
-	
-	private String name ="";
-	
-	private String description =""; 
-	
-	private String type="";
+public class App extends Model {
 
-	private boolean isPublic = false;
-	
-	private boolean clonable = false;
+  public static final String FIELD_IS_DELETED = "isDeleted";
 
-	private float rating = 0;
-	
-	private int test = 0;
-	
-	private int comments = 0;
-	
-	private Map<String, Integer> screenSize = new HashMap<String, Integer>();
+  public static final String BUS_APP_UPDATE = "matc.app.update";
 
-	public App setScreenSize(int w, int h){
-		this.screenSize.put("w", w);
-		this.screenSize.put("h", h);
-		return this;
-	}
-	
-	
+  private String name = "";
 
-	public String getName() {
-		return name;
-	}
+  private String description = "";
 
-	public void setName(String name) {
-		this.name = name;
-	}
+  private String type = "";
 
-	public String getDescription() {
-		return description;
-	}
+  private boolean isPublic = false;
 
-	public void setDescription(String description) {
-		this.description = description;
-	}
-	
-	public boolean getClonable() {
-		return clonable;
-	}
+  private boolean clonable = false;
 
-	public void setClonable(boolean clonable) {
-		this.clonable = clonable;
-	}
+  private float rating = 0;
 
-	@JsonProperty("isPublic")
-	public boolean getPublic() {
-		return isPublic;
-	}
+  private int test = 0;
 
-	@JsonProperty("isPublic")
-	public void setPublic(boolean isPublic) {
-		this.isPublic = isPublic;
-	}
+  private int comments = 0;
 
-	public String getType() {
-		return type;
-	}
+  private Map<String, Integer> screenSize = new HashMap<String, Integer>();
 
-	public void setType(String type) {
-		this.type = type;
-	}
-	
-	
-	
-	
+  public App setScreenSize(int w, int h) {
+    this.screenSize.put("w", w);
+    this.screenSize.put("h", h);
+    return this;
+  }
 
+  public String getName() {
+    return name;
+  }
 
+  public void setName(String name) {
+    this.name = name;
+  }
 
-	public float getRating() {
-		return rating;
-	}
+  public String getDescription() {
+    return description;
+  }
 
-	public void setRating(float rating) {
-		this.rating = rating;
-	}
+  public void setDescription(String description) {
+    this.description = description;
+  }
 
-	public int getTest() {
-		return test;
-	}
+  public boolean getClonable() {
+    return clonable;
+  }
 
-	public void setTest(int test) {
-		this.test = test;
-	}
+  public void setClonable(boolean clonable) {
+    this.clonable = clonable;
+  }
 
-	public int getComments() {
-		return comments;
-	}
+  @JsonProperty("isPublic")
+  public boolean getPublic() {
+    return isPublic;
+  }
 
-	public void setComments(int comments) {
-		this.comments = comments;
-	}
-	
-	public void incComments(int i){
-		this.comments +=i;
-	}
+  @JsonProperty("isPublic")
+  public void setPublic(boolean isPublic) {
+    this.isPublic = isPublic;
+  }
 
-	
-	
-	public Map<String, Integer> getScreenSize() {
-		return screenSize;
-	}
+  public String getType() {
+    return type;
+  }
 
-	public void setScreenSize(Map<String, Integer> screenSize) {
-		this.screenSize = screenSize;
-	}
-	
-	
+  public void setType(String type) {
+    this.type = type;
+  }
 
-	@Override
-	public String toString() {
-		return "App [id=" + getId() + ", name=" + name + ", isPublic=" + isPublic
-				+ "]";
-	}
+  public float getRating() {
+    return rating;
+  }
 
-	
+  public void setRating(float rating) {
+    this.rating = rating;
+  }
 
-	
-	/************************************************************
-	 *  Query Methods!
-	 ************************************************************/
-	
+  public int getTest() {
+    return test;
+  }
 
- 	public static JsonObject findPublicByID(String appID){
- 		return new JsonObject()
- 			.put("isPublic", true)
- 			.put("_id", appID);
- 		
-	}
- 	
- 	public static JsonObject findPublic(){
- 		return new JsonObject()
- 			.put("isPublic", true);
-	}
- 	
- 	public static JsonObject findNotPaid(){
- 		return new JsonObject()
- 			.put("isPublic", true)
- 			.put("domain", "Kyrapp.com");
-	}
- 	
- 	public static JsonObject findByIds(){
- 		return new JsonObject()
- 			.put("_id", true);
-	}
- 	
- 	public static JsonObject findDirty() {
- 		return new JsonObject()
- 	 			.put("isDirty", true);
-	}
+  public void setTest(int test) {
+    this.test = test;
+  }
 
- 	
- 	public static JsonObject summaryFields(){
- 		return new JsonObject()
-				.put("widgets", 0)
-				.put("screens", 0)
-				.put("groups", 0)
-				.put("templates", 0)
-				.put("grid", 0)
-				.put("lines", 0);
- 	}
- 	
- 	
+  public int getComments() {
+    return comments;
+  }
 
-	public static String[] getModelParts() {
-		return new String[]{
-			DB.getTable(Event.class), 
-			DB.getTable(CommandStack.class), 
-			DB.getTable(TestSetting.class), 
-			DB.getTable(Comment.class),
-			DB.getTable(Image.class),
-			DB.getTable(Annotation.class),
-			DB.getTable(Invitation.class),
-			DB.getTable(Team.class),
-			DB.getTable(Mouse.class)
-		};
-	}
-	
-	
+  public void setComments(int comments) {
+    this.comments = comments;
+  }
 
-	public static void onUpdate(RoutingContext event, String appID) {
-		
-		JsonObject request = new JsonObject()
-				.put(AppPart.APP_ID,  appID);
-		
-		event.vertx().eventBus().send(App.BUS_APP_UPDATE, request);
-		
-	}
+  public void incComments(int i) {
+    this.comments += i;
+  }
 
+  public Map<String, Integer> getScreenSize() {
+    return screenSize;
+  }
 
+  public void setScreenSize(Map<String, Integer> screenSize) {
+    this.screenSize = screenSize;
+  }
 
-	public static boolean isDeleted(JsonObject app) {
-		if (app.containsKey(FIELD_IS_DELETED)){
-			return app.getBoolean(FIELD_IS_DELETED);
-		}
-		return false;
-	}
+  @Override
+  public String toString() {
+    return "App [id=" + getId() + ", name=" + name + ", isPublic=" + isPublic
+        + "]";
+  }
 
+  /************************************************************
+   * Query Methods!
+   ************************************************************/
 
+  public static JsonObject findPublicByID(String appID) {
+    return new JsonObject()
+        .put("isPublic", true)
+        .put("_id", appID);
 
-	
-	
+  }
 
+  public static JsonObject findPublic() {
+    return new JsonObject()
+        .put("isPublic", true);
+  }
+
+  public static JsonObject findNotPaid() {
+    return new JsonObject()
+        .put("isPublic", true)
+        .put("domain", "Kyrapp.com");
+  }
+
+  public static JsonObject findByIds() {
+    return new JsonObject()
+        .put("_id", true);
+  }
+
+  public static JsonObject findDirty() {
+    return new JsonObject()
+        .put("isDirty", true);
+  }
+
+  public static JsonObject summaryFields() {
+    return new JsonObject()
+        .put("widgets", 0)
+        .put("screens", 0)
+        .put("groups", 0)
+        .put("templates", 0)
+        .put("grid", 0)
+        .put("lines", 0);
+  }
+
+  public static String[] getModelParts() {
+    return new String[] {
+        DB.getTable(Event.class),
+        DB.getTable(CommandStack.class),
+        DB.getTable(TestSetting.class),
+        DB.getTable(Comment.class),
+        DB.getTable(Image.class),
+        DB.getTable(Annotation.class),
+        DB.getTable(Invitation.class),
+        DB.getTable(Team.class)
+    };
+  }
+
+  public static void onUpdate(RoutingContext event, String appID) {
+
+    JsonObject request = new JsonObject()
+        .put(AppPart.APP_ID, appID);
+
+    event.vertx().eventBus().send(App.BUS_APP_UPDATE, request);
+
+  }
+
+  public static boolean isDeleted(JsonObject app) {
+    if (app.containsKey(FIELD_IS_DELETED)) {
+      return app.getBoolean(FIELD_IS_DELETED);
+    }
+    return false;
+  }
 
 }

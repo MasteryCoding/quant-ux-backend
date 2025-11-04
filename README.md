@@ -11,7 +11,7 @@ You can try out a running version here: https://quant-ux.com
 
 ## Config
 
-Edit the config file (e.g. matc.conf). Do not forget to update the *jwt.password* property. For a clustered setup, you need to keep
+Edit the config file (e.g. matc.conf). Do not forget to update the _jwt.password_ property. For a clustered setup, you need to keep
 the passwords the same. If you keep the password blank, a random password is generated at startup
 
 ```javascript
@@ -24,26 +24,13 @@ the passwords the same. If you keep the password blank, a random password is gen
   "image.size" : 50000000, // max image size for uploads
   "mongo.db_name": "MATC", // mongo DB to use
   "mongo.connection_string": "mongodb://localhost:27017", // connection string, might include password and username
-  "mail.user": "", // POP user name for mail sending
-  "mail.password" : "", // password or token
-  "mail.host": "", // URL of mail server
-  "mail.port": 587, //  optional, port of mail server, default is 587
-  "mail.ssl": 'required', //  possible values 'required','optional' or 'disabled'. required is default.
-  "admin": "admin@quant-ux.com", // Internal mails will be send to this persons
-  "jwt.password": "test", // JWT password
   "auth.service": "", // 'keycloak' or ''
-  "auth.keycloak.server": "",
-  "auth.keycloak.realm": "",
-  "auth.keycloak.claim.lastname": "",
-  "auth.keycloak.claim.name": "",
-  "auth.keycloak.claim.id": "",
-  "auth.keycloak.claim.email": "",
   "user.allowSignUp": true,
   "user.allowedDomains": "*"
 }
 ```
 
-You can also provide the configuration through ENV variables. The following variables are supported, and map 
+You can also provide the configuration through ENV variables. The following variables are supported, and map
 to the JSON definitions.
 
 ```
@@ -51,29 +38,19 @@ to the JSON definitions.
     QUX_HTTP_HOST
 
     QUX_HTTP_PORT
-    
+
     QUX_MONGO_DB_NAME
 
     QUX_MONGO_TABLE_PREFIX
 
     QUX_MONGO_CONNECTION_STRING
 
-    QUX_MAIL_USER
-
-    QUX_MAIL_PASSWORD
-
-    QUX_MAIL_HOST
-    
-    QUX_MAIL_PORT
-
-    QUX_MAIL_SSL
-    
     QUX_JWT_PASSWORD
 
     QUX_IMAGE_FOLDER_USER
 
     QUX_IMAGE_FOLDER_APPS
-    
+
     QUX_AUTH_SERVICE
 
     QUX_KEYCLOAK_REALM
@@ -91,26 +68,26 @@ to the JSON definitions.
     QUX_KEY_CLOAK_CLAIM_NAME
 
     QUX_KEY_CLOAK_CLAIM_LASTNAME
-    
+
     QUX_USER_ALLOW_SIGNUP
-    
+
     QUX_USER_ALLOWED_DOMAINS
 
 ```
 
-Please note that we have replaced the old config of nested objects with a straight dot notation. 
+Please note that we have replaced the old config of nested objects with a straight dot notation.
 
 ### Private deployments
 
-You can limit the domains from which user can sign up by setting the 'user.allowedDomains' 
+You can limit the domains from which user can sign up by setting the 'user.allowedDomains'
 parameter in the config file, or by setting the ENV variable 'QUX_USER_ALLOWED_DOMAINS'. The value
 must be a comma separated list of domains, e.g. 'my-server.com,your-host.com'. Please be aware of <SPACES>. Sub-domains
 will be allowed.
 
-
 ## Mongo optimization
 
 Start the `mongo` shell and run the following commands to set the correct mongo indexes
+
 ```
 
 use MATC
@@ -143,7 +120,7 @@ db.user.createIndex({"id":1})
 You might need a mongo server. The simplest way is to use Docker.
 
 ```
-docker run -p 27017:27017 --name quxmongo2 -d mongo:4.4   
+docker run -p 27017:27017 --name quxmongo2 -d mongo:4.4
 
 ```
 
@@ -155,19 +132,16 @@ java -jar server-3.20.0-fat.jar -conf matc.conf -instances 4
 
 In InteliJ create a new runner with the following parameters:
 
-- *Main Class*: io.vertx.core.Starter
+- _Main Class_: io.vertx.core.Starter
 
-- *Program Arguments*: run com.qux.MATC -conf matc.conf
-
-
+- _Program Arguments_: run com.qux.MATC -conf matc.conf
 
 ## Connection with KeyCloak
 
 ```
-docker run -p 8081:8080 -e KEYCLOAK_USER=admin -e KEYCLOAK_PASSWORD=admin -v $(pwd)/test/keycloak:/tmp --name qux-keycloak jboss/keycloak 
+docker run -p 8081:8080 -e KEYCLOAK_USER=admin -e KEYCLOAK_PASSWORD=admin -v $(pwd)/test/keycloak:/tmp --name qux-keycloak jboss/keycloak
 ```
 
 ```
 docker run -p 8081:8080 -e KEYCLOAK_USER=admin -e KEYCLOAK_PASSWORD=admin -e KEYCLOAK_IMPORT=/tmp/example-realm.json -v  $(pwd)/test/keycloak/example-realm.json:/tmp/example-realm.json --name qux-keycloak  jboss/keycloak
 ```
-

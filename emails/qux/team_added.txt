@@ -1,6 +1,0 @@
-Dear {{name}},
-
-{{fromEmail}} has shared the '{{appName}}' with you on {{{quxServerHost}}}.
-
-
-You Quant-UX Team.

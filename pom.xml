@@ -48,13 +48,6 @@
 
 		<dependency>
 			<groupId>io.vertx</groupId>
-			<artifactId>vertx-mail-client</artifactId>
-			<version>${vertx.version}</version>
-		</dependency>
-
-
-		<dependency>
-			<groupId>io.vertx</groupId>
 			<artifactId>vertx-unit</artifactId>
 			<version>${vertx.version}</version>
 		</dependency>
@@ -142,13 +135,6 @@
 		        </exclusion>
       		</exclusions> 
 		</dependency>
-
-		<dependency>
-			<groupId>com.auth0</groupId>
-			<artifactId>jwks-rsa</artifactId>
-			<version>0.20.2</version>
-		</dependency>
-		
 
 	</dependencies>
 
