@@ -1,8 +1,8 @@
 package com.qux.util.rest;
 
 import com.qux.auth.ITokenService;
+import com.qux.model.App;
 import com.qux.model.Model;
-import com.qux.model.Team;
 import com.qux.model.User;
 import com.qux.util.DB;
 import io.vertx.core.Handler;
@@ -41,23 +41,31 @@ public class MongoREST extends CrudREST {
 		this.mongo = db;
 		this.table = DB.getTable(cls);
 		this.logger  =LoggerFactory.getLogger(getClass());
-		this.team_db = DB.getTable(Team.class);
 	}
 
 	public void getACLList(User user, Handler<String> handler) {
 		if (!user.hasRole(User.USER)) {
 			handler.handle("[] - User is guest");
 		} else {
-			mongo.find(team_db, Team.findByUser(user), res ->{
+			String app_db = DB.getTable(App.class);
+			String userID = user.getId();
+			// Query apps where users contains the userID
+			JsonObject query = new JsonObject()
+					.put("users." + userID, new JsonObject().put("$exists", true));
+			mongo.find(app_db, query, res ->{
 				if (res.succeeded()) {
 					StringBuilder appIDs = new StringBuilder();
-					List<JsonObject> acls = res.result();
-					for(JsonObject acl : acls){
-						if(acl.containsKey(Team.APP_ID) && acl.getString(Team.APP_ID) != null) {
-							appIDs.append(acl.getString(Team.APP_ID));
-							appIDs.append(":");
-							appIDs.append(acl.getInteger(Team.PERMISSION));
-							appIDs.append(";");
+					List<JsonObject> apps = res.result();
+					for(JsonObject app : apps){
+						String appID = app.getString("_id");
+						if(appID != null && app.containsKey("users")) {
+							JsonObject users = app.getJsonObject("users");
+							if(users.containsKey(userID)) {
+								appIDs.append(appID);
+								appIDs.append(":");
+								appIDs.append(users.getInteger(userID));
+								appIDs.append(";");
+							}
 						}
 					}
 					error("getACLList", "List for "+ user + ": " + appIDs);

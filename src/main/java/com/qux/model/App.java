@@ -176,8 +176,7 @@ public class App extends Model {
         DB.getTable(Comment.class),
         DB.getTable(Image.class),
         DB.getTable(Annotation.class),
-        DB.getTable(Invitation.class),
-        DB.getTable(Team.class)
+        DB.getTable(Invitation.class)
     };
   }
 

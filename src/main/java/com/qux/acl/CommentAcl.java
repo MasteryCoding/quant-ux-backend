@@ -10,7 +10,6 @@ import org.slf4j.LoggerFactory;
 
 import com.qux.model.AppPart;
 import com.qux.model.Comment;
-import com.qux.model.Team;
 import com.qux.model.User;
 import com.qux.util.DB;
 
@@ -31,14 +30,11 @@ public class CommentAcl extends AppAcl{
 	
 	private Logger logger = LoggerFactory.getLogger(CommentAcl.class);
 	
-	private final String team_db;
-	
 	private final String comment_db;
 	
 	public CommentAcl(MongoClient client){
 		super(client);
 		comment_db = DB.getTable(Comment.class);
-		team_db = DB.getTable(Team.class);
 	}
 
 	
@@ -66,13 +62,8 @@ public class CommentAcl extends AppAcl{
 			JsonObject comment = event.getBodyAsJson();
 			if(comment.containsKey("type") && Comment.TYPE_CANVAS.equals(comment.getString("type"))){
 				logger.debug("canWrite() > Update 'ScreenComment'"); 
-				client.count(team_db, Team.canWrite(user, appID), res->{
-					if(res.succeeded()){
-						assertOne(res, handler, event);
-					} else {
-						handler.handle(false);
-					}
-				});
+				// Use parent's canWrite which checks app.users
+				super.canWrite(user, event, handler);
 			} else {
 				//System.out.println("Can Write > " + appID + " " + commentID);
 				checkAuthor(user, event, handler, appID, commentID);	

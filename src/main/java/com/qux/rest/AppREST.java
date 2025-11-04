@@ -18,17 +18,14 @@ import com.qux.model.AppPart;
 import com.qux.model.Image;
 import com.qux.model.Invitation;
 import com.qux.model.Model;
-import com.qux.model.Team;
 import com.qux.model.User;
 import com.qux.util.DB;
-import com.qux.util.Mail;
 import com.qux.util.rest.MongoREST;
 import com.qux.util.rest.MongoUtil;
 import com.qux.util.PreviewEngine;
 import com.qux.util.Util;
 import com.qux.validation.AppValidator;
 import io.vertx.core.Handler;
-import io.vertx.core.file.FileSystem;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.mongo.FindOptions;
@@ -43,7 +40,7 @@ public class AppREST extends MongoREST {
 
   private final PreviewEngine preview = new PreviewEngine();
 
-  private final String team_db, inv_db, image_db;
+  private final String inv_db, image_db;
 
   private final IBlobService blobService;
 
@@ -60,7 +57,6 @@ public class AppREST extends MongoREST {
     this.setValidator(new AppValidator(db, this));
     this.setReturnUpdatedObject(false);
     setIdParameter("appID");
-    this.team_db = DB.getTable(Team.class);
     this.inv_db = DB.getTable(Invitation.class);
     this.image_db = DB.getTable(Image.class);
     this.part_dbs = App.getModelParts();
@@ -320,26 +316,34 @@ public class AppREST extends MongoREST {
   private void findByUser(RoutingContext event) {
     logger.debug("findByUser() > enter");
     /**
-     * Join over team and app table :-(
+     * Query apps where users contains the userID
      */
     long start = System.currentTimeMillis();
     String paging = event.request().getParam("paging");
+    String userID = getUser(event).getId();
 
     logger.info("findByUser() > enter > paging : " + paging);
-    mongo.find(team_db, Team.findByUser(getUser(event)), res -> {
+
+    // Query apps where users contains the userID
+    JsonObject query = new JsonObject()
+        .put("users." + userID, new JsonObject().put("$exists", true));
+
+    mongo.find(table, query, res -> {
 
       if (res.succeeded()) {
+        List<JsonObject> apps = res.result();
         JsonArray appIDs = new JsonArray();
-        List<JsonObject> acls = res.result();
-        for (JsonObject acl : acls) {
-          if (acl.containsKey(Team.APP_ID) && acl.getString(Team.APP_ID) != null) {
-            appIDs.add(acl.getString(Team.APP_ID));
+
+        for (JsonObject app : apps) {
+          String appID = app.getString("_id");
+          if (appID != null) {
+            appIDs.add(appID);
           }
         }
 
         long end = System.currentTimeMillis();
-        logger.info("findByUser() > exit > team_db: " + (end - start));
-        this.logMetric(this.getClass(), "findByUser[teamdb]", (end - start));
+        logger.info("findByUser() > exit > app_db: " + (end - start));
+        this.logMetric(this.getClass(), "findByUser[appdb]", (end - start));
 
         if ("true".equals(paging)) {
           pageByUser(event, appIDs);
@@ -537,16 +541,22 @@ public class AppREST extends MongoREST {
   protected void afterCreate(RoutingContext event, JsonObject app) {
     logger.info("afterCreate() > enter " + app.getString("_id"));
 
-    JsonObject owner = Team.create(getUser(event), app.getString("_id"), Acl.OWNER);
-    mongo.save(team_db, owner, ownerCreated -> {
-      if (ownerCreated.succeeded()) {
+    String appID = app.getString("_id");
+    String userID = getUser(event).getId();
+
+    // Set owner permission in app.users
+    JsonObject users = new JsonObject();
+    users.put(userID, Acl.OWNER);
+    JsonObject update = new JsonObject().put("$set", new JsonObject().put("users", users));
+
+    mongo.updateCollection(table, Model.findById(appID), update, ownerUpdated -> {
+      if (ownerUpdated.succeeded()) {
         logger.debug("afterCreate() > Owner added > ");
       } else {
         logger.error("afterCreate() Could not add owner");
       }
     });
 
-    String appID = app.getString("_id");
     addInvitation(appID, Invitation.TEST);
     addInvitation(appID, Invitation.READ);
     addInvitation(appID, Invitation.WRITE);

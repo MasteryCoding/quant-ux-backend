@@ -8,7 +8,6 @@ import com.qux.auth.ITokenService;
 import com.qux.model.App;
 import com.qux.model.AppEvent;
 import com.qux.model.Library;
-import com.qux.model.LibraryTeam;
 import com.qux.model.Model;
 import com.qux.util.DB;
 import com.qux.util.rest.MongoREST;
@@ -22,15 +21,12 @@ public class LibraryRest extends MongoREST {
 
   private final String library_db;
 
-  private final String library_team_db;
-
   public LibraryRest(ITokenService tokenService, MongoClient db) {
     super(tokenService, db, Library.class);
     this.setACL(new LibraryAcl(db));
     this.setPartialUpdate(false);
     this.setIdParameter("libID");
     this.library_db = DB.getTable(Library.class);
-    this.library_team_db = DB.getTable(LibraryTeam.class);
   }
 
   public Handler<RoutingContext> findByUser() {
@@ -45,23 +41,31 @@ public class LibraryRest extends MongoREST {
   private void findByUser(RoutingContext event) {
     logger.debug("findByUser() > enter");
     /**
-     * Join over lib_team and lib table :-(
+     * Query libraries where users contains the userID
      */
     long start = System.currentTimeMillis();
-    mongo.find(library_team_db, LibraryTeam.findByUser(getUser(event)), res -> {
+    String userID = getUser(event).getId();
+
+    // Query libraries where users contains the userID
+    JsonObject query = new JsonObject()
+        .put("users." + userID, new JsonObject().put("$exists", true));
+
+    mongo.find(library_db, query, res -> {
 
       if (res.succeeded()) {
-        JsonArray appIDs = new JsonArray();
-        List<JsonObject> acls = res.result();
-        for (JsonObject acl : acls) {
-          if (acl.containsKey(LibraryTeam.LIB_ID) && acl.getString(LibraryTeam.LIB_ID) != null) {
-            appIDs.add(acl.getString(LibraryTeam.LIB_ID));
+        List<JsonObject> libraries = res.result();
+        JsonArray libIDs = new JsonArray();
+
+        for (JsonObject lib : libraries) {
+          String libID = lib.getString("_id");
+          if (libID != null) {
+            libIDs.add(libID);
           }
         }
         long end = System.currentTimeMillis();
-        logger.info("findByUser() > exit > library_team_db: " + (end - start));
+        logger.info("findByUser() > exit > library_db: " + (end - start));
         this.logMetric(this.getClass(), "findByUser", (end - start));
-        findByIds(event, appIDs);
+        findByIds(event, libIDs);
       } else {
         logger.error("findByUser() > Mongo Error " + res.cause().getMessage());
         returnError(event, 404);
@@ -71,7 +75,7 @@ public class LibraryRest extends MongoREST {
 
   private void findByIds(RoutingContext event, JsonArray appIDs) {
     logger.debug("findByIds() > enter " + appIDs);
-    mongo.find(library_db, Library.findByIDS(appIDs), appRes -> {
+    mongo.find(library_db, Model.findByIDS(appIDs), appRes -> {
 
       if (appRes.succeeded()) {
         long dbDone = System.currentTimeMillis();
@@ -113,10 +117,17 @@ public class LibraryRest extends MongoREST {
   protected void afterCreate(RoutingContext event, JsonObject app) {
     logger.info("afterCreate() > enter " + app.getString("_id"));
 
-    JsonObject owner = LibraryTeam.create(getUser(event), app.getString("_id"), Acl.OWNER);
-    mongo.save(library_team_db, owner, ownerCreated -> {
-      if (ownerCreated.succeeded()) {
-        logger.info("afterCreate() > Owner added > " + ownerCreated.result());
+    String libID = app.getString("_id");
+    String userID = getUser(event).getId();
+
+    // Set owner permission in library.users
+    JsonObject users = new JsonObject();
+    users.put(userID, Acl.OWNER);
+    JsonObject update = new JsonObject().put("$set", new JsonObject().put("users", users));
+
+    mongo.updateCollection(table, Model.findById(libID), update, ownerUpdated -> {
+      if (ownerUpdated.succeeded()) {
+        logger.info("afterCreate() > Owner added > ");
       } else {
         logger.error("afterCreate() Could not add owner");
       }
@@ -133,9 +144,6 @@ public class LibraryRest extends MongoREST {
 
     mongo.removeDocuments(library_db, Model.findById(appID), res -> {
       if (res.succeeded()) {
-        mongo.removeDocuments(library_team_db, LibraryTeam.findByLib(appID), res2 -> {
-          log("delete", "Remoed team lib");
-        });
         returnOk(event, table + ".delete.success");
       } else {
         log("delete", "Cannot set isDeletedFlag");

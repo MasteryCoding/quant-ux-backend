@@ -63,7 +63,6 @@ public class MATC extends AbstractVerticle {
     initStatus(router);
     initUserRest(config, router);
     initAppRest(router, config);
-    initTeamRest(router);
     initCommandRest(router);
     initCommentRest(router);
     initEventRest(router);
@@ -121,12 +120,6 @@ public class MATC extends AbstractVerticle {
     router.route(HttpMethod.GET, "/rest/libs/:libID.json").handler(libs.find());
     router.route(HttpMethod.POST, "/rest/libs/:libID.json").handler(libs.update());
 
-    LibraryTeamRest libTeams = new LibraryTeamRest(this.tokenService, client);
-    router.route(HttpMethod.GET, "/rest/libs/:libID/team.json").handler(libTeams.getTeam());
-    router.route(HttpMethod.GET, "/rest/libs/:libID/suggestions/team.json").handler(libTeams.getSuggestion());
-    router.route(HttpMethod.POST, "/rest/libs/:libID/team/").handler(libTeams.createPermission());
-    router.route(HttpMethod.POST, "/rest/libs/:libID/team/:userID.json").handler(libTeams.updatePermission());
-    router.route(HttpMethod.DELETE, "/rest/libs/:libID/team/:userID.json").handler(libTeams.removePermission());
   }
 
   public void initTokenService(JsonObject config) {
@@ -248,17 +241,6 @@ public class MATC extends AbstractVerticle {
         .handler(invitationComment.update());
     router.route(HttpMethod.DELETE, "/rest/comments/hash/:hash/:appID/:commentID.json")
         .handler(invitationComment.delete());
-  }
-
-  private void initTeamRest(Router router) {
-
-    TeamREST team = new TeamREST(this.tokenService, client);
-
-    router.route(HttpMethod.GET, "/rest/apps/:appID/team.json").handler(team.getTeam());
-    router.route(HttpMethod.GET, "/rest/apps/:appID/suggestions/team.json").handler(team.getSuggestion());
-    router.route(HttpMethod.POST, "/rest/apps/:appID/team/").handler(team.createPermission());
-    router.route(HttpMethod.POST, "/rest/apps/:appID/team/:userID.json").handler(team.updatePermission());
-    router.route(HttpMethod.DELETE, "/rest/apps/:appID/team/:userID.json").handler(team.removePermission());
   }
 
   private void initAppRest(Router router, JsonObject config) {

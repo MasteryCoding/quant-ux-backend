@@ -6,7 +6,6 @@ import com.qux.acl.UserAcl;
 import com.qux.auth.ITokenService;
 import com.qux.blob.IBlobService;
 import com.qux.model.AppEvent;
-import com.qux.model.Team;
 import com.qux.model.User;
 import com.qux.util.Config;
 import org.slf4j.Logger;
@@ -27,8 +26,6 @@ public class UserREST extends MongoREST {
 
   // private final String imageFolder;
 
-  private final String team_db;
-
   private long imageSize = 1024 * 1024;
 
   private final Logger logger = LoggerFactory.getLogger(UserREST.class);
@@ -45,7 +42,6 @@ public class UserREST extends MongoREST {
     super(tokenService, db, User.class);
     this.blobService = blobService;
     this.imageSize = conf.getLong("image.size");
-    this.team_db = DB.getTable(Team.class);
     this.initConfig(conf);
     setACL(new UserAcl(db));
     setValidator(new UserValidator(db));
@@ -179,14 +175,7 @@ public class UserREST extends MongoREST {
 
   public void afterDelete(RoutingContext event, String id) {
     logger.info("afterDelete() > " + id);
-    JsonObject query = new JsonObject().put(Team.USER_ID, id);
-    mongo.removeDocuments(this.team_db, query, res -> {
-      if (res.succeeded()) {
-        logger.error("Removed entries in team db");
-      } else {
-        logger.error("Could not clean up team db");
-      }
-    });
+    // Note: User permissions are now stored in app.users, so no cleanup needed
   }
 
   public void createExternalIfNotExists(RoutingContext event) {

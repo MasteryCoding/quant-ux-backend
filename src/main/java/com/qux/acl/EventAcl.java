@@ -3,41 +3,31 @@ package com.qux.acl;
 import io.vertx.core.Handler;
 import io.vertx.ext.mongo.MongoClient;
 import io.vertx.ext.web.RoutingContext;
-import com.qux.model.Team;
 import com.qux.model.User;
-import com.qux.util.DB;
 
 /**
  * 
  * Events can only be written by everybody that can read the app
+ * Uses AppAcl to check permissions from app.users
  *
  */
-public class EventAcl extends MongoAcl implements Acl{
-	
-	private final String team_db;
+public class EventAcl extends AppAcl {
 
 	public EventAcl(MongoClient client) {
 		super(client);
-		this.team_db = DB.getTable(Team.class);
 	}
 
 	@Override
 	public void canCreate(User user, RoutingContext event,Handler<Boolean> handler) {
-		
-		String appID = event.request().params().get("appID");
-		client.count(team_db, Team.canRead(user, appID), res->{
-			assertOne(res, handler, event);
-		});
-		
+		// Use parent's canRead to check app.users
+		super.canRead(user, event, handler);
 	}
 
 	@Override
 	public void canRead(User user, RoutingContext event,Handler<Boolean> handler) {
 		if(user.hasRole(User.USER)){
-			String appID = event.request().params().get("appID");
-			client.count(team_db, Team.canRead(user, appID), res->{
-				assertOne(res, handler, event);
-			});
+			// Use parent's canRead to check app.users
+			super.canRead(user, event, handler);
 		} else {
 			handler.handle(false);
 		}
@@ -46,10 +36,8 @@ public class EventAcl extends MongoAcl implements Acl{
 	@Override
 	public void canWrite(User user, RoutingContext event,	Handler<Boolean> handler) {
 		if(user.hasRole(User.USER)){
-			String appID = event.request().params().get("appID");
-			client.count(team_db, Team.canWrite(user, appID), res->{
-				assertOne(res, handler, event);
-			});
+			// Use parent's canWrite to check app.users
+			super.canWrite(user, event, handler);
 		} else {
 			handler.handle(false);
 		}
@@ -57,10 +45,8 @@ public class EventAcl extends MongoAcl implements Acl{
 	@Override
 	public void canDelete(User user, RoutingContext event,	Handler<Boolean> handler) {
 		if(user.hasRole(User.USER)){
-			String appID = event.request().params().get("appID");
-			client.count(team_db, Team.canWrite(user, appID), res->{
-				assertOne(res, handler, event);
-			});
+			// Use parent's canWrite to check app.users
+			super.canWrite(user, event, handler);
 		} else {
 			handler.handle(false);
 		}
