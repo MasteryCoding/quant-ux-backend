@@ -7,3 +7,4 @@
 .idea
 matc.iml
 /matc_keycloak.conf
+*.env*

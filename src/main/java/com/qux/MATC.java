@@ -53,11 +53,16 @@ public class MATC extends AbstractVerticle {
     router.route().handler(BodyHandler.create().setMergeFormAttributes(false));
     router.route().handler(CorsHandler.create("*")
         .allowedMethod(HttpMethod.GET)
+        .allowedMethod(HttpMethod.POST)
+        .allowedMethod(HttpMethod.PUT)
+        .allowedMethod(HttpMethod.DELETE)
+        .allowedMethod(HttpMethod.OPTIONS)
         .allowedHeader("Access-Control-Request-Method")
         .allowedHeader("Access-Control-Allow-Credentials")
         .allowedHeader("Access-Control-Allow-Origin")
         .allowedHeader("Access-Control-Allow-Headers")
-        .allowedHeader("Content-Type"));
+        .allowedHeader("Content-Type")
+        .allowedHeader("Authorization"));
 
     initTokenService(config);
     initStatus(router);
@@ -283,6 +288,10 @@ public class MATC extends AbstractVerticle {
     IBlobService blob = getBlockService(config.getString("image.folder.user"), config);
     UserREST user = new UserREST(this.tokenService, blob, client, config, vertx);
 
+    // Register specific routes before parameterized routes to avoid route conflicts
+    router.route(HttpMethod.POST, "/rest/user/external").handler(user::createExternalIfNotExists);
+    router.route(HttpMethod.POST, "/rest/user/token-exchange").handler(user::exchangeToken);
+
     router.route(HttpMethod.POST, "/rest/user/:id/images/").handler(user.setImage());
     router.route(HttpMethod.GET, "/rest/user/:id/images/:name/:image").handler(user.getImage());
     router.route(HttpMethod.DELETE, "/rest/user/:id/images/:image").handler(user.deleteImage());
@@ -291,9 +300,6 @@ public class MATC extends AbstractVerticle {
     router.route(HttpMethod.GET, "/rest/user").handler(user.current());
     router.route(HttpMethod.POST, "/rest/login").handler(user.login());
     router.route(HttpMethod.DELETE, "/rest/login").handler(user.logout());
-
-    router.route(HttpMethod.POST, "/rest/user/external").handler(user::createExternalIfNotExists);
-    router.route(HttpMethod.POST, "/rest/user/token-exchange").handler(user::exchangeToken);
   }
 
   @Override

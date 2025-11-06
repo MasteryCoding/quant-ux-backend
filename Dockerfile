@@ -6,9 +6,7 @@ COPY ["pom.xml", "./"]
 COPY ["src/", "./src"]
 RUN mvn -B package --file pom.xml
 
-
-
-FROM eclipse-temurin:18-jdk-alpine AS runner
+FROM eclipse-temurin:18-jdk AS runner
 
 WORKDIR /app
 
