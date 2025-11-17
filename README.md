@@ -136,7 +136,26 @@ java -jar server-3.20.0-fat.jar -conf matc.conf -instances 4
 
 ## Dev Setup
 
-In InteliJ create a new runner with the following parameters:
+### Option 1: Docker Development Mode (Recommended for Hot Reload)
+
+Use Docker Compose with the development Dockerfile that automatically rebuilds and restarts on file changes:
+
+```bash
+docker compose up quant-ux-backend-dev
+```
+
+This will:
+
+- Watch for changes in `src/`, `pom.xml`, and `matc.conf`
+- Automatically recompile when files change
+- Restart the server automatically
+- Sync files using Docker Compose watch feature
+
+The development service uses `Dockerfile.local` which includes file watching with `entr`.
+
+### Option 2: IntelliJ IDEA
+
+In IntelliJ create a new runner with the following parameters:
 
 - _Main Class_: io.vertx.core.Starter
 

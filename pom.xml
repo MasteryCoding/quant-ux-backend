@@ -190,6 +190,17 @@
 				</executions>
 			</plugin>
 
+			<!-- Maven Exec Plugin for running the app in development -->
+			<plugin>
+				<groupId>org.codehaus.mojo</groupId>
+				<artifactId>exec-maven-plugin</artifactId>
+				<version>3.1.0</version>
+				<configuration>
+					<mainClass>io.vertx.core.Starter</mainClass>
+					<commandlineArgs>run com.qux.MATC -conf matc.conf</commandlineArgs>
+				</configuration>
+			</plugin>
+
 		</plugins>
 
 	</build>

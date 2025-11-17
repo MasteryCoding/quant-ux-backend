@@ -1,0 +1,49 @@
+FROM maven:3-openjdk-18
+
+WORKDIR /app
+
+# Install file watcher tool (entr)
+RUN apt-get update && apt-get install -y entr && rm -rf /var/lib/apt/lists/*
+
+# Copy Maven files
+COPY pom.xml ./
+COPY matc.conf ./
+
+# Download dependencies (this layer will be cached)
+RUN mvn dependency:go-offline -B
+
+# Create entrypoint script for watching and auto-rebuilding
+RUN printf '#!/bin/bash\n\
+  set -e\n\
+  \n\
+  echo "Starting development server with file watching..."\n\
+  echo "Watching for changes in /app/src/..."\n\
+  \n\
+  # Function to compile and run\n\
+  compile_and_run() {\n\
+  echo "[$(date +%%H:%%M:%%S)] Changes detected, recompiling..."\n\
+  if mvn compile -q; then\n\
+  # Kill existing Java process if running\n\
+  pkill -f "com.qux.MATC" || true\n\
+  sleep 1\n\
+  \n\
+  echo "[$(date +%%H:%%M:%%S)] Compilation successful, starting server..."\n\
+  mvn exec:java -Dexec.mainClass="io.vertx.core.Starter" -Dexec.args="run com.qux.MATC -conf matc.conf" &\n\
+  echo "[$(date +%%H:%%M:%%S)] Server started"\n\
+  else\n\
+  echo "[$(date +%%H:%%M:%%S)] Compilation failed, waiting for fixes..."\n\
+  fi\n\
+  }\n\
+  \n\
+  # Initial compile and run\n\
+  compile_and_run\n\
+  \n\
+  # Watch for changes in source files\n\
+  find /app/src -name "*.java" -o -name "*.xml" -o -name "*.conf" | entr -r -s "compile_and_run"\n\
+  ' > /app/dev-entrypoint.sh && chmod +x /app/dev-entrypoint.sh
+
+# Expose port
+EXPOSE 8082
+
+# Use the entrypoint script
+ENTRYPOINT ["/app/dev-entrypoint.sh"]

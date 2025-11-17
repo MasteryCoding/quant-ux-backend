@@ -291,7 +291,6 @@ public class MATC extends AbstractVerticle {
     // Register specific routes before parameterized routes to avoid route conflicts
     router.route(HttpMethod.POST, "/rest/user/external").handler(user::createExternalIfNotExists);
     router.route(HttpMethod.POST, "/rest/user/token-exchange").handler(user::exchangeToken);
-
     router.route(HttpMethod.POST, "/rest/user/:id/images/").handler(user.setImage());
     router.route(HttpMethod.GET, "/rest/user/:id/images/:name/:image").handler(user.getImage());
     router.route(HttpMethod.DELETE, "/rest/user/:id/images/:image").handler(user.deleteImage());
