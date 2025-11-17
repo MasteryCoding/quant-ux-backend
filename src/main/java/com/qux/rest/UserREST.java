@@ -35,6 +35,7 @@ public class UserREST extends MongoREST {
 
   private WebClient webClient;
   private String externalApiUrl;
+  private String mcSecretKey;
 
   public UserREST(ITokenService tokenService, IBlobService blobService, MongoClient db, JsonObject conf, Vertx vertx) {
     super(tokenService, db, User.class);
@@ -42,6 +43,7 @@ public class UserREST extends MongoREST {
     this.imageSize = conf.getLong("image.size");
     this.webClient = WebClient.create(vertx);
     this.externalApiUrl = conf.getString(Config.EXTERNAL_API_URL);
+    this.mcSecretKey = conf.getString(Config.MC_SECRET_KEY);
     setACL(new UserAcl(db));
     setValidator(new UserValidator(db));
     setPartialUpdate(true);
@@ -166,12 +168,16 @@ public class UserREST extends MongoREST {
       logger.error("createExternalIfNotExists() > No id");
       returnError(event, 400);
     }
-    if (!json.containsKey("email")) {
-      logger.error("createExternalIfNotExists() > No email");
+    if (!json.containsKey("username")) {
+      logger.error("createExternalIfNotExists() > No username");
       returnError(event, 400);
     }
-    if (!json.containsKey("name")) {
-      logger.error("createExternalIfNotExists() > No name");
+    if (!json.containsKey("firstName")) {
+      logger.error("createExternalIfNotExists() > No firstName");
+      returnError(event, 400);
+    }
+    if (!json.containsKey("lastName")) {
+      logger.error("createExternalIfNotExists() > No lastName");
       returnError(event, 400);
     }
 
@@ -195,6 +201,42 @@ public class UserREST extends MongoREST {
     });
   }
 
+  /**
+   * Idempotent helper: ensures user exists (creates if not), then generates and
+   * returns token.
+   * Used by token exchange endpoint.
+   */
+  private void createExternalIfNotExistsAndReturnToken(RoutingContext event, JsonObject userJson, String id) {
+    logger.info("createExternalIfNotExistsAndReturnToken() > Checking user: " + id);
+
+    this.mongo.findOne(this.table, User.findById(id), null, res -> {
+      if (res.failed()) {
+        logger.error("createExternalIfNotExistsAndReturnToken() > Failed to query user", res.cause());
+        returnError(event, 500);
+        return;
+      }
+
+      JsonObject existingUser = res.result();
+      if (existingUser != null) {
+        // User exists, generate token
+        logger.info("createExternalIfNotExistsAndReturnToken() > User exists, generating token");
+        // Ensure _id is set for token generation (getToken expects _id field)
+        existingUser.put("_id", id);
+        String token = this.getTokenService().getToken(existingUser);
+        // For response, use id field (not _id)
+        existingUser.put("id", id);
+        existingUser.remove("_id");
+        JsonObject response = cleanJson(existingUser.copy());
+        response.put("token", token);
+        returnJson(event, response);
+      } else {
+        // User doesn't exist, create it and generate token
+        logger.info("createExternalIfNotExistsAndReturnToken() > Creating new user");
+        insertExternalForTokenExchange(event, userJson, id);
+      }
+    });
+  }
+
   private void insertExternal(RoutingContext event, JsonObject json, String id) {
     logger.info("insertExternal() > Create user : " + id);
 
@@ -204,14 +246,14 @@ public class UserREST extends MongoREST {
     json.put("external", true);
     json.put("created", System.currentTimeMillis());
     json.put("lastUpdate", System.currentTimeMillis());
-    json.put("email", json.getString("email").toLowerCase());
-    json.put("external", true);
+    json.put("username", json.getString("username").toLowerCase());
+    json.put("firstName", json.getString("firstName"));
+    json.put("lastName", json.getString("lastName"));
     json.put("role", User.USER);
     json.put("password", Util.getRandomString());
     json.put("acceptedGDPR", true);
 
     this.mongo.insert(this.table, json, res -> {
-
       if (res.succeeded()) {
         this.logger.error("insertExternal() > Created user");
 
@@ -250,6 +292,13 @@ public class UserREST extends MongoREST {
       externalToken = authHeader.substring(7);
     }
 
+    // Verify and decode the MC JWT token
+    if (mcSecretKey == null || mcSecretKey.isEmpty()) {
+      logger.error("exchangeToken() > MC_SECRET_KEY not configured");
+      returnError(event, 500);
+      return;
+    }
+
     // Call external API to get user info
     webClient.getAbs(externalApiUrl + "/v3/user/me")
         .putHeader("Authorization", externalToken)
@@ -261,13 +310,18 @@ public class UserREST extends MongoREST {
           }
 
           if (apiRes.result().statusCode() != 200) {
+            logger.error("exchangeToken() > Used the following variables: " + "externalApiUrl: " + externalApiUrl);
             logger.error("exchangeToken() > External API returned status: " + apiRes.result().statusCode());
+            logger.error("exchangeToken() > External API returned body: " + apiRes.result().bodyAsString());
+            logger.error("exchangeToken() > External API returned headers: " + apiRes.result().headers().toString());
             returnError(event, 401);
             return;
           }
 
           try {
             JsonObject externalUser = apiRes.result().bodyAsJsonObject();
+
+            logger.info("exchangeToken() > External user: " + externalUser.toString());
 
             // Validate required fields
             if (!externalUser.containsKey("id")) {
@@ -287,37 +341,15 @@ public class UserREST extends MongoREST {
             String firstName = externalUser.getString("firstName", "");
             String lastName = externalUser.getString("lastName", "");
 
-            // Ensure user exists in Quant-UX (idempotent)
+            // Build user JSON in Quant-UX format
             JsonObject quantUXUserJson = new JsonObject()
                 .put("id", externalUserId)
                 .put("email", email)
                 .put("name", firstName)
                 .put("lastname", lastName);
 
-            // Check if user already exists
-            this.mongo.findOne(this.table, User.findById(externalUserId), null, findRes -> {
-              if (findRes.failed()) {
-                logger.error("exchangeToken() > Failed to query user", findRes.cause());
-                returnError(event, 500);
-                return;
-              }
-
-              JsonObject existingUser = findRes.result();
-              if (existingUser != null) {
-                // User exists, generate token
-                logger.info("exchangeToken() > User exists, generating token");
-                existingUser.put("id", externalUserId);
-                existingUser.remove("_id");
-                String token = this.getTokenService().getToken(existingUser);
-                JsonObject response = cleanJson(existingUser.copy());
-                response.put("token", token);
-                returnJson(event, response);
-              } else {
-                // User doesn't exist, create it
-                logger.info("exchangeToken() > Creating new user");
-                insertExternalForTokenExchange(event, quantUXUserJson, externalUserId);
-              }
-            });
+            // Idempotent: ensure user exists, then generate token
+            createExternalIfNotExistsAndReturnToken(event, quantUXUserJson, externalUserId);
           } catch (Exception e) {
             logger.error("exchangeToken() > Error processing external user", e);
             returnError(event, 500);
