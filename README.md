@@ -92,6 +92,39 @@ curl -X POST https://your-quantux-backend.com/rest/user/token-exchange \
 
 The external API must implement `GET /v3/user/me` that returns a user object with at least `id` and `username` fields.
 
+## Health Check
+
+The server provides a health check endpoint at `/health` that checks MongoDB connectivity:
+
+- **Path**: `/health`
+- **Method**: `GET`
+- **Response**:
+  - `200 OK` when healthy (MongoDB is reachable)
+  - `503 Service Unavailable` when unhealthy (MongoDB is unreachable)
+
+The response includes:
+
+- `status`: "UP" or "DOWN"
+- `version`: Server version
+- `started`: Server start timestamp
+- `mongo.status`: "UP" or "DOWN"
+- `mongo.error`: Error message (only present when MongoDB is down)
+
+Example healthy response:
+
+```json
+{
+  "status": "UP",
+  "version": "4.5.6",
+  "started": "2024-01-01T12:00:00",
+  "mongo": {
+    "status": "UP"
+  }
+}
+```
+
+There is also a simpler status endpoint at `/rest/status.json` that returns version and start time without checking dependencies.
+
 ## Mongo optimization
 
 Start the `mongo` shell and run the following commands to set the correct mongo indexes
