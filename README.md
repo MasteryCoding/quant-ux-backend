@@ -36,6 +36,8 @@ to the JSON definitions.
 
 ```
 
+    DEBUG
+
     QUX_HTTP_HOST
 
     QUX_HTTP_PORT
@@ -121,22 +123,13 @@ db.user.createIndex({"id":1})
 
 ```
 
-## Development
-
-You might need a mongo server. The simplest way is to use Docker.
-
-```
-docker run -p 27017:27017 --name quxmongo2 -d mongo:4.4
-
-```
-
 ## Start server
 
 java -jar server-3.20.0-fat.jar -conf matc.conf -instances 4
 
 ## Dev Setup
 
-### Option 1: Docker Development Mode (Recommended for Hot Reload)
+### Docker Development Mode (Recommended for Hot Reload)
 
 Use Docker Compose with the development Dockerfile that automatically rebuilds and restarts on file changes:
 
@@ -152,11 +145,3 @@ This will:
 - Sync files using Docker Compose watch feature
 
 The development service uses `Dockerfile.local` which includes file watching with `entr`.
-
-### Option 2: IntelliJ IDEA
-
-In IntelliJ create a new runner with the following parameters:
-
-- _Main Class_: io.vertx.core.Starter
-
-- _Program Arguments_: run com.qux.MATC -conf matc.conf

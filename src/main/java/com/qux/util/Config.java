@@ -10,7 +10,7 @@ public class Config {
 
   private static final Logger logger = LoggerFactory.getLogger(Config.class);
 
-  public static final String ENV_DEBUG = "QUX_DEBUG";
+  public static final String ENV_DEBUG = "DEBUG";
 
   public static final String ENV_HTTP_HOST = "QUX_HTTP_HOST";
 
