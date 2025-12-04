@@ -75,6 +75,7 @@ public class MATC extends AbstractVerticle {
     initTokenService(config);
     initMail(router, config);
     initStatus(router);
+    initHealth(router);
     initUserRest(config, router);
     initAppRest(router, config);
     initTeamRest(router);
@@ -136,6 +137,36 @@ public class MATC extends AbstractVerticle {
         .put("started", startedTime)
         .put("version", VERSION)
         .encodePrettily()));
+  }
+
+  private void initHealth(Router router) {
+    router.route(HttpMethod.GET, "/health").handler(event -> {
+      JsonObject health = new JsonObject()
+          .put("status", "UP")
+          .put("version", VERSION)
+          .put("started", startedTime);
+
+      // Check MongoDB connectivity using a simple count operation
+      // Using an empty query on a collection to test connectivity
+      client.count("_health_check", new JsonObject(), ar -> {
+        if (ar.succeeded()) {
+          health.put("mongo", new JsonObject().put("status", "UP"));
+          event.response()
+              .setStatusCode(200)
+              .putHeader("Content-Type", "application/json")
+              .end(health.encodePrettily());
+        } else {
+          health.put("status", "DOWN");
+          health.put("mongo", new JsonObject()
+              .put("status", "DOWN")
+              .put("error", ar.cause() != null ? ar.cause().getMessage() : "Unknown error"));
+          event.response()
+              .setStatusCode(503)
+              .putHeader("Content-Type", "application/json")
+              .end(health.encodePrettily());
+        }
+      });
+    });
   }
 
   private void initLibrary(Router router) {
