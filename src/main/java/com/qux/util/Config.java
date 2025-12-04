@@ -68,6 +68,8 @@ public class Config {
 
   public static final String ENV_EXTERNAL_API_URL = "QUX_EXTERNAL_API_URL";
 
+  public static final String ENV_MC_SECRET_KEY = "QUX_MC_SECRET_KEY";
+
   public static final String DEBUG = "debug";
 
   public static final String HTTP_HOST = "http.host";
@@ -121,6 +123,8 @@ public class Config {
   public static final String USER_ALLOWED_DOMAINS = "user.allowedDomains";
 
   public static final String EXTERNAL_API_URL = "external.api.url";
+
+  public static final String MC_SECRET_KEY = "mc.secret.key";
 
   public static boolean isKeyCloak(JsonObject config) {
     return "keycloak".equals(config.getString(AUTH_SERVICE));
@@ -261,6 +265,11 @@ public class Config {
     if (env.containsKey(ENV_JWT_PASSWORD)) {
       logger.warn("mergeAuth() > " + ENV_JWT_PASSWORD);
       result.put(JWT_PASSWORD, env.get(ENV_JWT_PASSWORD));
+    }
+
+    if (env.containsKey(ENV_MC_SECRET_KEY)) {
+      logger.warn("mergeAuth() > " + ENV_MC_SECRET_KEY);
+      result.put(MC_SECRET_KEY, env.get(ENV_MC_SECRET_KEY));
     }
   }
 
