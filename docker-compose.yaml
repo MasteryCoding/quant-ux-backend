@@ -1,0 +1,21 @@
+services:
+  quant-ux-backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.local
+    container_name: quant-ux-backend-dev
+    volumes:
+      - ./src:/app/src
+      - ./pom.xml:/app/pom.xml
+      - ./matc.conf:/app/matc.conf
+      - ./target:/app/target
+      - ./cache:/root/.m2
+      - ./test:/test
+      - ./logs:/logs
+    ports:
+      - "9001:9001"
+    environment:
+      QUX_IMAGE_FOLDER_USER: /test/qux-images
+      QUX_IMAGE_FOLDER_APPS: /test/qux-image-apps
+    env_file:
+      - .env
