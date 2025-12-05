@@ -15,3 +15,9 @@ RUN chmod +x /app/entrypoint.local.sh
 
 # Download dependencies (this layer will be cached)
 RUN mvn dependency:go-offline -B
+
+# Expose port
+EXPOSE 9001
+
+# Use the entrypoint script
+ENTRYPOINT ["/app/entrypoint.local.sh"]

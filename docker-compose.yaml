@@ -1,9 +1,10 @@
 services:
   quant-ux-backend:
+    image: quant-ux-backend:latest
     build:
       context: .
       dockerfile: Dockerfile.local
-    container_name: quant-ux-backend-dev
+    container_name: quant-ux-backend
     volumes:
       - ./src:/app/src
       - ./pom.xml:/app/pom.xml
