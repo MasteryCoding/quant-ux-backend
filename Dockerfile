@@ -6,10 +6,7 @@ COPY ["pom.xml", "./"]
 COPY ["src/", "./src"]
 RUN mvn -B package --file pom.xml
 
-
-
-FROM openjdk:19-jdk-alpine as runner
-
+FROM eclipse-temurin:18-jdk AS runner
 WORKDIR /app
 
 COPY ["emails/", "./emails"]
