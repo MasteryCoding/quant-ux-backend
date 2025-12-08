@@ -2,7 +2,7 @@
 set -e
 
 echo "Starting Quant-UX Backend in development mode..."
-echo "Watching for changes in /app/src/..."
+echo "Watching for changes in /usr/src/quant-ux-backend/src/..."
 echo ""
 
 # Function to compile and run
@@ -28,4 +28,4 @@ compile_and_run
 # -n: non-interactive mode (required for Docker)
 # -r: restart the command when files change
 # -s: run in shell
-find /app/src -name "*.java" -o -name "*.xml" -o -name "*.conf" | entr -n -r -s "compile_and_run"
+find /usr/src/quant-ux-backend/src -name "*.java" -o -name "*.xml" -o -name "*.conf" | entr -n -r -s "compile_and_run"

@@ -6,17 +6,13 @@ services:
       dockerfile: Dockerfile.local
     container_name: quant-ux-backend
     volumes:
-      - ./src:/app/src
-      - ./pom.xml:/app/pom.xml
-      - ./matc.conf:/app/matc.conf
-      - ./target:/app/target
-      - ./cache:/root/.m2
-      - ./test:/test
-      - ./logs:/logs
+      - ./:/usr/src/quant-ux-backend
+      # Anonymous volumes to persist uploaded images across container restarts
+      - /quantux/user
+      - /quantux/apps
     ports:
       - "9001:9001"
     environment:
-      QUX_IMAGE_FOLDER_USER: /test/qux-images
-      QUX_IMAGE_FOLDER_APPS: /test/qux-image-apps
-    env_file:
-      - .env
+      QUX_IMAGE_FOLDER_USER: /quantux/user
+      QUX_IMAGE_FOLDER_APPS: /quantux/apps
+      QUX_MONGO_DB_NAME: quantux

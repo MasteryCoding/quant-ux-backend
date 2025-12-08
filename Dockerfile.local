@@ -1,23 +1,14 @@
 FROM maven:3.9-eclipse-temurin-17
 
-WORKDIR /app
+WORKDIR /usr/src/quant-ux-backend
 
 # Install file watcher tool (entr) for hot reload
 RUN apt-get update && \
   apt-get install -y entr && \
   rm -rf /var/lib/apt/lists/*
 
-# Copy Maven files for dependency caching
-COPY pom.xml ./
-COPY matc.conf ./
-COPY entrypoint.local.sh ./
-RUN chmod +x /app/entrypoint.local.sh
-
-# Download dependencies (this layer will be cached)
-RUN mvn dependency:go-offline -B
-
 # Expose port
 EXPOSE 9001
 
 # Use the entrypoint script
-ENTRYPOINT ["/app/entrypoint.local.sh"]
+ENTRYPOINT ["/usr/src/quant-ux-backend/entrypoint.local.sh"]
